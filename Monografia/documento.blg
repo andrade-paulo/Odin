@@ -1,0 +1,98 @@
+This is BibTeX, Version 0.99e (TeX Live 2026/Arch Linux)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: documento.aux
+The style file: lib/abntex2-alf.bst
+Reallocated singl_function (elt_size=8) to 100 items from 50.
+Reallocated singl_function (elt_size=8) to 100 items from 50.
+Reallocated singl_function (elt_size=8) to 100 items from 50.
+Reallocated singl_function (elt_size=8) to 100 items from 50.
+Reallocated wiz_functions (elt_size=8) to 6000 items from 3000.
+Reallocated singl_function (elt_size=8) to 100 items from 50.
+if is an illegal style-file command---line 1536 of file lib/abntex2-alf.bst
+ :     "abnt-etal-list" abnt.etal.list int.to.str$ abnt.display.options} if
+ :                                                                         $
+abnt is an illegal style-file command---line 1538 of file lib/abntex2-alf.bst
+ :     abnt
+ :         -etal-cite empty$
+abnt is an illegal style-file command---line 1542 of file lib/abntex2-alf.bst
+ :     abnt
+ :         -etal-list empty$
+abnt is an illegal style-file command---line 1546 of file lib/abntex2-alf.bst
+ :     abnt
+ :         -etal-text missing$
+abnt is an illegal style-file command---line 1550 of file lib/abntex2-alf.bst
+ :     abnt
+ :         -no-etal-label empty$
+abnt is an illegal style-file command---line 1555 of file lib/abntex2-alf.bst
+ :     abnt
+ :         -repeated-author-omit empty$
+abnt is an illegal style-file command---line 1561 of file lib/abntex2-alf.bst
+ :     abnt
+ :         -repeated-title-omit empty$ 'skip$
+abnt is an illegal style-file command---line 1570 of file lib/abntex2-alf.bst
+ :     abnt
+ :         -title-command empty$
+abnt is an illegal style-file command---line 1576 of file lib/abntex2-alf.bst
+ :     abnt
+ :         -url-package empty$ 'skip$
+abnt is an illegal style-file command---line 1584 of file lib/abntex2-alf.bst
+ :     abnt
+ :         -verbatim-entry empty$
+abnt is an illegal style-file command---line 1588 of file lib/abntex2-alf.bst
+ :   abnt
+ :       .show.options #2 = 'fin.entry  'skip$ if$
+Reallocated singl_function (elt_size=8) to 100 items from 50.
+Database file #1: abntex2-options.bib
+Database file #2: 3-pos-textuais/referencias.bib
+Reallocated wiz_functions (elt_size=8) to 9000 items from 6000.
+Reallocated singl_function (elt_size=8) to 100 items from 50.
+Reallocated glb_str_ptr (elt_size=8) to 20 items from 10.
+Reallocated global_strs (elt_size=200001) to 20 items from 10.
+Reallocated glb_str_end (elt_size=8) to 20 items from 10.
++---------------------------------------------------------+
+| Estilo bibliográfico abntex2-alf.bst versão v<VERSION>           |
+| Em caso de dúvidas ou problemas com este estilo procure |
+| http://www.abntex.net.br/                               |
++---------------------------------------------------------+
+You've used 5 entries,
+            6446 wiz_defined-function locations,
+            1174 strings with 9105 characters,
+and the built_in function-call counts, 1753 in all, are:
+= -- 246
+> -- 0
+< -- 0
++ -- 53
+- -- 0
+* -- 75
+:= -- 263
+add.period$ -- 0
+call.type$ -- 7
+change.case$ -- 15
+chr.to.int$ -- 1
+cite$ -- 0
+duplicate$ -- 17
+empty$ -- 183
+format.name$ -- 0
+if$ -- 457
+int.to.chr$ -- 4
+int.to.str$ -- 7
+missing$ -- 45
+newline$ -- 8
+num.names$ -- 0
+pop$ -- 46
+preamble$ -- 1
+purify$ -- 15
+quote$ -- 0
+skip$ -- 227
+stack$ -- 1
+substring$ -- 72
+swap$ -- 0
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 0
+warning$ -- 0
+while$ -- 2
+width$ -- 0
+write$ -- 8
+(There were 11 error messages)
