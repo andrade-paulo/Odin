@@ -2,7 +2,7 @@
 #include "port_radio_crtp.hpp"
 #include "dto_flight_data.hpp"
 #include "freertos/FreeRTOS.h"
-#include "freertos/stream_buffer.h"
+#include "freertos/message_buffer.h"
 
 #include "custom_telemetry/mavlink.h"
 
@@ -10,7 +10,7 @@ namespace infra {
 
 class MavlinkRadioAdapter : public core::RadioPort<MavlinkRadioAdapter> {
 private:
-    StreamBufferHandle_t tx_stream_buffer;
+    MessageBufferHandle_t tx_message_buffer;
     uint8_t system_id;
     uint8_t component_id;
 
@@ -20,12 +20,12 @@ private:
         uint16_t len = mavlink_msg_to_send_buffer(buffer, msg);
         
         // Push raw bytes. Do not block if buffer is full (drop packet to maintain realtime execution)
-        xStreamBufferSend(tx_stream_buffer, buffer, len, 0);
+        xMessageBufferSend(tx_message_buffer, buffer, len, 0);
     }
 
 public:
-    MavlinkRadioAdapter(StreamBufferHandle_t stream, uint8_t sys_id = 1, uint8_t comp_id = 1)
-        : tx_stream_buffer(stream), system_id(sys_id), component_id(comp_id) {}
+    MavlinkRadioAdapter(MessageBufferHandle_t stream, uint8_t sys_id = 1, uint8_t comp_id = 1)
+        : tx_message_buffer(stream), system_id(sys_id), component_id(comp_id) {}
 
     // CRTP Implementation mandated by the base class
     inline void dispatch_telemetry_impl(const core::FlightDataDTO& data, core::TelemetrySlot slot) {

@@ -1,0 +1,58 @@
+# LaTeX intermediate and auxiliary files
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.run.xml
+*.synctex.gz
+*.blg
+*.bbl
+*.brf
+*.nav
+*.snm
+*.vrb
+*.bcf
+
+# Generated output (uncomment if you want to track PDFs)
+*.dvi
+*.ps
+*.pdf
+
+# LaTeX package / tool caches and dirs
+_minted-*/
+minted-*/
+*.xdv
+*.fdb
+
+# Build directories
+build/
+out/
+_build/
+latex-build/
+latex_out/
+
+# IDE / editor files
+*~
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+*.rej
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor configs / project files
+.vscode/
+.idea/
+*.iml
+
+# Misc
+.texpadtmp
+*.auxlock

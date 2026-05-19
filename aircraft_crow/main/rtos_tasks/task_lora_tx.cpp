@@ -1,12 +1,12 @@
 #include "freertos/FreeRTOS.h"
-#include "freertos/stream_buffer.h"
+#include "freertos/message_buffer.h"
 #include "adapter_sx1276.hpp"
 #include "esp_log.h"
 
 static const char* TAG = "LORA_TASK";
 
-// External stream buffer created in main.cpp
-extern StreamBufferHandle_t lora_tx_stream;
+// External message buffer created in main.cpp
+extern MessageBufferHandle_t lora_tx_stream;
 
 void vTaskLoRaTX(void *pvParameters) {
     auto* radio_phy = static_cast<infra::SX1276_Adapter*>(pvParameters);
@@ -16,9 +16,8 @@ void vTaskLoRaTX(void *pvParameters) {
     uint8_t rx_buffer[255]; 
 
     while (1) {
-        // 1. Block indefinitely waiting for MAVLink bytes from Core 1
-        // We set the trigger level to 1, meaning it wakes up as soon as any bytes arrive.
-        size_t received_bytes = xStreamBufferReceive(lora_tx_stream, rx_buffer, sizeof(rx_buffer), portMAX_DELAY);
+        // 1. Block indefinitely waiting for a full MAVLink packet.
+        size_t received_bytes = xMessageBufferReceive(lora_tx_stream, rx_buffer, sizeof(rx_buffer), portMAX_DELAY);
 
         if (received_bytes > 0) {
             // 2. Hand off to the PHY layer. 
@@ -28,6 +27,8 @@ void vTaskLoRaTX(void *pvParameters) {
             
             if (!success) {
                 ESP_LOGW(TAG, "Packet drop or TX failure");
+            } else {
+                ESP_LOGI(TAG, "Packet sent: %u bytes", (unsigned)received_bytes);
             }
         }
     }

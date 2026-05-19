@@ -1,12 +1,73 @@
 \chapter{Introdução}
 \label{cap:introducao}
 
+No processo de desenvolvimento de veículos voadores não tripulados (VANT) há a necessidade de validação dos dados teóricos e provenientes de simulações, através de experimentações em cenários reais \cite{projeto-vant}. Para tanto, a aquisição dos dados desejados se torna um dos fatores de atenção. Os desafios presentes no processo surgem nas necessidades de quais, como e onde os dados serão adquiridos e apresentados \cite{projeto-embarcado}.
+
 \section{Contextualização}
-Explicação do contexto: aerodesign, voos de UAV, telemetria
+
+O presente trabalho se contextualiza no processo de captação e exposição dos dados analíticos obtidos em ensaios em voo de aeronaves da PegAzuls AeroDesign, competidora na SAE Brasil AeroDesign, classe regular. Uma das características fundamentais dos VANTs para AeroDesign é a sua restrição física, energética e estrutural. Na classe regular, as aeronaves são limitadas a alguns metros de envergadura e devem contar com, exatamente, uma bateria exclusiva para o sistema de controle \cite{regulamento-sae-aerodesign-2026}.
+
+Os dados obtidos com sistemas embarcados podem colaborar com o projeto de diferentes subsistemas das equipes de AeroDesign. Para a equipe de Estabilidade e Controle, a atitude da aeronave define quão eficiente estão as empenagens e superfícies de comando, além de validar seus estudos da estabilidade estática e dinâmica \cite{estabilidade}. Para o projeto de Desempenho, a velocidade relativa ao chão e o deslocamento vertical desempenham papel fundamental na análise das fases de voo \cite{desempenho}. Para as análises de cargas atuantes na aeronave, a validação do fator de carga para cada velocidade em relação ao chão é essencial para construção segura e competitiva do envelope de voo \cite{cargas}. 
+
+Além destes citados, vários outros dados podem contribuir para o projeto a medida que novos estudos são acrescentados. Estes não se restringem a informações coletadas na aeronave. Informações como condições climáticas e monitoramento da pista e obstáculo são de extrema importância para a contextualização dos ensaios, podendo afetar o julgamento das análises \cite{desempenho}.
 
 \subsection{Problematização}
-Hipótese da solução
+O processo de desenvolvimento de um sistema embarcado para telemetria em voo compreende diversos desafios. O projeto deve apresentar sensores com boa precisão, boa vazão e baixo consumo energético. Além disso, o microcontrolador deve conciliar poder computacional com portabilidade e baixo consumo energético. Ao final da coleta e processamento, os dados devem ser guardados e enviados para os projetistas, criando a necessidade de integração com dispositivos de armazenamento e telemetria. Tudo isso deve ser consolidado em um sistema unificado e financeiramente acessível \cite{projeto-embarcado}.
 
-\subsubsection{Metodologia}
-Requisitos (SMART)
+Quando mais de um dispositivo passa a coletar informações, um novo problema surge: conciliar diferentes fontes e dispositivos em um projeto distribuído. A padronização de protocolos, camada de rede e tecnologias nem sempre é possível, o que configura o desafio inerente da comunicação consistente e segura em sistemas distribuído \cite{distribuidos}.
+
+No momento de transmissão, deve-se considerar a mobilidade da aeronave e como a distância pode interferir na movimentação de pacotes pelas camadas físicas de rede. Atender às demandas de distância, \textit{bit rate} e consumo energético passa a ser um dos principais obstáculos de um sistema de telemetria baseado em radiofrequência \cite{antenas-RF}.
+
+Para conciliar os desafios, uma estrutura distribuída robusta deve ser considerada. A aplicação de estratégias como camada de \textit{middleware} \cite{distribuidos} e \textit{edge-computing} \cite{edge-computing} aliam-se às tecnologias eletrônicas e digitais para a implementação de um sistema distribuído embarcado.
+
+\section{Metodologia}
+O sistema proposto tem uma lista de requisitos inicias bem definidos. Porém, a complexidade do sistema irá escalar com a lista de necessidades de testes em voos da equipe PegAzuls AeroDesign. Além disso, o acesso aos equipamentos de hardware necessários pode não ser idealmente previsível, tornando inviável a estratégia de entrega incremental. Portanto, o projeto será de natureza iterativa, ou seja, as demandas e condições podem mudar ao longo do projeto \cite{engenharia-software}.
+
+O fluxo do projeto foi construído inspirado nas definições iterativas de projetos ágeis, onde a listagem de requisitos iniciais guia o projeto que se submete a avaliações após cada etapa \cite{agile}. Além disso, para a definição das principais fases do projeto, utilizou-se a meotodologia Raymer, com o projeto conceitual, preliminar e detalhado, visto que esta é uma importante referência para industria aeronáutica \cite{raymer}. Dessa forma, a metodologia deste projeto segue a estrutura exposta na Figura \ref{fig:fluxo-metodologia}.
+
+\begin{figure}[ht]
+  \begin{center}
+    \includegraphics[width=1\textwidth]{images/fluxo_metodologia.png}
+  \end{center}
+  \caption{Fluxo de metodologia}\label{fig:fluxo-metodologia}
+\end{figure}
+
+\subsection{Requisitos}
+Para fechar o escopo deste projeto, uma entrevista foi conduzida com a equipe PegAzuls AeroDesign. Nesta, identificou-se as necessidades mais críticas e viáveis para um sistema embarcado. A equipe concluiu que os dados listados na Tabela \ref{tab:dados-requisitados} farão parte do escopo deste sistema. Porém, deve-se levar em conta que o sistema irá ser atualizado e precisa estar preparado para integração de novos sensores e funcionalidades.
+
+\begin{table}[ht]
+  \centering
+  \caption{Requisitos Funcionais}
+  \label{tab:dados-requisitados}
+  \begin{tabular}{c|c}
+    \textbf{Informação} & \textbf{Subsistema Interessado} \\
+    \hline
+    Aceleração no eixo da gravidade & Cargas \\ \hline
+    Altitude densidade na pista & Desempenho \\ \hline
+    Atitude da aeronave & Estabilidade \\ \hline
+    Velocidade relativa ao solo & Desempenho, Cargas \\ \hline
+  \end{tabular}
+\end{table}
+
+
+
+Para servir de principal guia de desenvolvimento do projeto, listou-se os requisitos funcionais na Tabela \ref{tab:requisitos-funcionais} e os não funcionais na Tabela \ref{tab:requisitos-nao-funcionais}. Estes, foram elencados seguindo a metodologia SMART, onde cada requisitos precisa ser específico (\textit{Specific}), mensurável (\textit{Measurable}), atingível (\textit{Achievable}), relevante (\textit{Relevant}) e temporal (\textit{Time-bound}) \cite{requisitos-smart}.
+
+\begin{table}[ht]
+  \centering
+  \caption{Requisitos Funcionais}
+  \label{tab:requisitos-funcionais}
+  \begin{tabular}{c|p{10cm}|c}
+    \textbf{Referência} & \textbf{Descrição} & \textbf{Data de Entrega} \\
+    \hline
+    RF.01 & O hardware deve contemplar sensores capazes de prover todos os dados da tabela de dados requisitados & DD/MM/YYYY \\ \hline
+    RF.02 & O hardware deve ser capaz de operar apenas com a tensão e corrente proveniente do receptor ou bateria do sistema de controle & DD/MM/YYYY \\ \hline
+    RF.03 & O hardware deve ocupar até 10cm x 10cm de espaço & DD/MM/YYYY \\ \hline
+    RF.04 & O sistema de aquisição deve acionar e desativar com comando do piloto & DD/MM/YYYY \\ \hline
+    RF.05 & O sistema deve ser capaz de realizar calibração e filtragem de ruído nos sensores & DD/MM/YYYY \\ \hline
+    RF.06 & O sistema deve comunicar seu estado e validade operacional aos seus operadores & DD/MM/YYYY \\ \hline
+    RF.07 & Os dados gerados devem ser armazenados em um cartão SD & DD/MM/YYYY \\ \hline
+    RF.08 & Os dados gerados devem ser transmitidos via rádio para a estação em solo & DD/MM/YYYY \\ \hline
+  \end{tabular}
+\end{table}
 

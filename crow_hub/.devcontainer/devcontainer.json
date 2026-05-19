@@ -1,5 +1,5 @@
 {
-	"name": "ESP-IDF AIRCRAFT CROW",
+	"name": "ESP-IDF CROW HUB",
 	"build": {
 		"dockerfile": "Dockerfile"
 	},
@@ -17,6 +17,6 @@
 	},
 	"runArgs": [
 		"--privileged",
-		"--device=/dev/ttyUSB0:/dev/ttyUSB0"
+		"--device=/dev/ttyACM0:/dev/ttyACM0"
 	]
 }

@@ -1,7 +1,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-#include "freertos/stream_buffer.h"
+#include "freertos/message_buffer.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 
@@ -70,7 +70,7 @@ static bool initialize_spi_bus() {
 // --- Global IPC Variables ---
 QueueHandle_t sd_data_queue = nullptr;
 QueueHandle_t buzzer_queue = nullptr;
-StreamBufferHandle_t lora_tx_stream = nullptr;
+MessageBufferHandle_t lora_tx_stream = nullptr;
 
 extern void vTaskAcquisition(void *pvParameters);
 extern void vTaskSDLogger(void *pvParameters);
@@ -89,7 +89,7 @@ extern "C" void app_main() {
 
     sd_data_queue = xQueueCreate(50, sizeof(core::FlightDataDTO));
     buzzer_queue = xQueueCreate(10, sizeof(infra::BuzzerCommand));
-    lora_tx_stream = xStreamBufferCreate(512, 1);
+    lora_tx_stream = xMessageBufferCreate(1024);
 
     if (!sd_data_queue || !lora_tx_stream) {
         ESP_LOGE(TAG, "Failed to allocate IPC memory in FreeRTOS heap.");
@@ -112,6 +112,7 @@ extern "C" void app_main() {
         SPI_Shared::MISO, 
         SPI_Shared::CLK, 
         SPI_SDCard::CS, 
+        SPI_Shared::HOST,
         "/sdcard"
     );
 

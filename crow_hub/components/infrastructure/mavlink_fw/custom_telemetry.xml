@@ -1,0 +1,75 @@
+<?xml version="1.0"?>
+<mavlink>
+    <!-- Define standard headers to ensure compatibility with standard parsers -->
+    <include>minimal.xml</include>
+
+    <!-- Custom Dialect Definition -->
+    <!-- Dialect ID must be distinct to avoid collision with standard dialects -->
+    <version>1</version>
+    <dialect>250</dialect>
+
+    <!-- Enums define the bitmasks we use to pack multiple booleans into a single byte -->
+    <enums>
+        <enum name="CUSTOM_SYS_STATUS_FLAGS">
+            <description>Bitmask representing the health of the UAV subsystems.</description>
+            <!-- Values must be powers of 2 for bitmasking -->
+            <entry value="1" name="CUSTOM_SYS_IMU_HEALTHY">
+                <description>MPU6050 is responding and data is valid.</description>
+            </entry>
+            <entry value="2" name="CUSTOM_SYS_SD_LOGGING">
+                <description>SD Card is mounted and actively writing CSVs.</description>
+            </entry>
+            <entry value="4" name="CUSTOM_SYS_RADIO_LOCKED">
+                <description>LoRa PLL is locked and ready to transmit.</description>
+            </entry>
+            <entry value="8" name="CUSTOM_SYS_GPS_FIX">
+                <description>GPS has a 3D fix (Reserved for future use).</description>
+            </entry>
+        </enum>
+    </enums>
+
+    <messages>
+        <!-- 
+            MESSAGE 1: High Rate Attitude (10 Hz)
+            ID: 150
+            Rule: Largest fields first (uint32_t), then int16_t.
+        -->
+        <message id="150" name="CUSTOM_ATTITUDE">
+            <description>Highly compressed IMU vectors. Multiply by 0.001 on the Ground Station to recover SI units.</description>
+            <field type="uint32_t" name="time_boot_ms" units="ms">Timestamp (milliseconds since system boot)</field>
+            <field type="int16_t" name="accel_x_mg" units="mg">X acceleration (milli-G)</field>
+            <field type="int16_t" name="accel_y_mg" units="mg">Y acceleration (milli-G)</field>
+            <field type="int16_t" name="accel_z_mg" units="mg">Z acceleration (milli-G)</field>
+            <field type="int16_t" name="gyro_x_mr" units="mrad/s">X angular rate (milli-radians/s)</field>
+            <field type="int16_t" name="gyro_y_mr" units="mrad/s">Y angular rate (milli-radians/s)</field>
+            <field type="int16_t" name="gyro_z_mr" units="mrad/s">Z angular rate (milli-radians/s)</field>
+        </message>
+
+        <!-- 
+            MESSAGE 2: Medium Rate Navigation (1 Hz)
+            ID: 151
+            Rule: Largest fields first (int32_t, uint32_t), then uint16_t.
+        -->
+        <message id="151" name="CUSTOM_NAVIGATION">
+            <description>Compressed GPS and Barometer data.</description>
+            <field type="int32_t" name="lat">Latitude, expressed as degrees * 1E7</field>
+            <field type="int32_t" name="lon">Longitude, expressed as degrees * 1E7</field>
+            <field type="int32_t" name="alt_mm" units="mm">Altitude above MSL (millimeters)</field>
+            <field type="uint32_t" name="time_boot_ms" units="ms">Timestamp (milliseconds since system boot)</field>
+            <field type="uint16_t" name="vel_cm_s" units="cm/s">Ground speed (centimeters/second)</field>
+            <field type="uint16_t" name="heading_cdeg" units="cdeg">Heading (centi-degrees, 0.00 to 359.99)</field>
+        </message>
+
+        <!-- 
+            MESSAGE 3: Low Rate System Health (0.1 Hz)
+            ID: 152
+            Rule: Largest fields first (uint32_t), then uint16_t, then uint8_t.
+        -->
+        <message id="152" name="CUSTOM_HEALTH">
+            <description>Aggregated system state and telemetry.</description>
+            <field type="uint32_t" name="time_boot_ms" units="ms">Timestamp (milliseconds since system boot)</field>
+            <field type="uint16_t" name="vbat_mv" units="mV">Battery voltage (millivolts)</field>
+            <field type="uint8_t" name="status_mask" enum="CUSTOM_SYS_STATUS_FLAGS">Bitmask of system statuses</field>
+        </message>
+    </messages>
+</mavlink>

@@ -19,7 +19,7 @@ private:
 
 public:
     // Pass standard SPI pins. mount_pt defaults to "/sdcard"
-    SDCardSPIAdapter(int mosi, int miso, int clk, int cs, const char* mount_pt = "/sdcard");
+    SDCardSPIAdapter(int mosi, int miso, int clk, int cs, spi_host_device_t host, const char* mount_pt = "/sdcard");
     ~SDCardSPIAdapter();
 
     // Mounts the FAT filesystem into the ESP-IDF VFS

@@ -6,9 +6,9 @@ static const char* TAG = "SD_SPI_ADAPTER";
 
 namespace infra {
 
-SDCardSPIAdapter::SDCardSPIAdapter(int mosi, int miso, int clk, int cs, const char* mount_pt)
+SDCardSPIAdapter::SDCardSPIAdapter(int mosi, int miso, int clk, int cs, spi_host_device_t host, const char* mount_pt)
     : pin_mosi(mosi), pin_miso(miso), pin_clk(clk), pin_cs(cs), 
-      mount_point(mount_pt), is_mounted(false), card_handle(nullptr) {}
+    mount_point(mount_pt), is_mounted(false), card_handle(nullptr), spi_host_id(host) {}
 
 SDCardSPIAdapter::~SDCardSPIAdapter() {
     if (is_mounted) {
@@ -21,10 +21,10 @@ bool SDCardSPIAdapter::mount() {
 
     esp_err_t ret;
 
-    // 1. Define the SPI Host. SDSPI_HOST_DEFAULT uses SPI2_HOST (FSPI)
+    // 1. Define the SPI host and frequency.
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+    host.slot = spi_host_id;
     host.max_freq_khz = 20000; // 20 MHz is stable for most breadboard/wire setups. Push to 40MHz on custom PCBs.
-    spi_host_id = (spi_host_device_t)host.slot;
 
     // 2. Configure the SPI Bus
     spi_bus_config_t bus_cfg = {};
