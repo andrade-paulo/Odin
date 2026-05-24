@@ -14,7 +14,7 @@ void TelemetryOrchestrator::setRecordingMode(bool isRecording) {
         _currentState = SystemState::RECORDING;
         _logger->openLog();
         _indicator->indicateState(_currentState);
-    } 
+    }
     else if (!isRecording && _currentState == SystemState::RECORDING) {
         _currentState = SystemState::IDLE;
         _logger->closeLog();
