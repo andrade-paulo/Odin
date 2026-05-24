@@ -1,3 +1,6 @@
+#pragma once
+
+
 enum class SystemState {
     POWER_UP,
     FAILED,
