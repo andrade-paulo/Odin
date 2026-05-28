@@ -1,31 +1,44 @@
 \chapter{Arquitetura distribuída}
 \label{chap:arquitetura-distribuida}
 
-
-
 \section{Projeto conceitual}
+O cenário conceitual do sistema é composto por um piloto, um operador e um conjunto de sistemas de aquisições de dados que podem estar embarcados na aeronave ou em solo. Enquanto o piloto comanda a aeronave, o operador se encarrega de fiscalizar e operar os sistemas. Neste processo, o operador deve ser capaz de acompanhar a saúde dos componenetes e suas conexões, além dos próprios dados gerados. A Imagem \ref{fig:design-conceitual} representa os componentes e comunicações do cenário conceitual.
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.9\textwidth]{images/design_conceitual.png}
+    \includegraphics[width=1\textwidth]{images/design_conceitual.png}
     \caption{\textit{Design} conceitual da solução}
     \label{fig:design-conceitual}
 \end{figure}
 
 \section{Arquitetura de comunicação}
-(Diagrama que se completa ao longo das subsections)
+Devido à natureza distribuída do projeto, a arquitetura de comunicação entre componentes foi a primeira parte a ser desenvolvida, servindo de guia para todo o processo de implementação.
 
-\subsection{Componentes distribuídos}
-Ponta, middleware e client
+Para começar a construção da arquitetura foi necessário listar os componentes e suas funções, conforme a Imagem \ref{fig:componentes-distribuidos}. A determinação de onde começa e termina cad componente deve considerar as diferentes responsabilidades e escopos, de forma que todos os componentes tenham tarefas exclusivas e bem definidas \cite{sistemas-distribuidos}. Para este diagrama considerou-se uma extrapolação do escopo de implementação do presente trabalho para que as futuras implementações já estejam contidas no planejamento inicial.
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.85\textwidth]{images/componentes_design_comunicacao.png}
+    \includegraphics[width=1\textwidth]{images/componentes_design_comunicacao.png}
     \caption{Componentes distribuidos}
     \label{fig:componentes-distribuidos}
 \end{figure}
 
-\subsection{Camada física}
-Escolha da antena e módulo RF
+Para suprir o requisito RF.09 o sistema implementará o componente Odin. Este, será uma plataforma para centralização das informações produzidas pelos sensores e da saúde do sistema. Inferências e algoritmos complexos serão aplicados neste componente, visto que será instanciado por uma máquina host com maior poder de processamento em relação aos sistemas embarcados.
+
+Devido à natureza plural da camada física e dos protocolos, há a necessidade da criação de um \textit{middleware}, componente especializado em interpretar e integrar cada elemento distribuído \cite{distribuidos}. Desta forma, criou-se o Shoulder, que centraliza e padroniza cada mensagem enviada pelos diferentes sistemas produtores, viabilizando o requisito RF.08. Com isso, o Odin assume isoladamente a tarefa de visualização e o middleware, de integração.
+
+Os componentes Aicraft Crow, Weather Crow, Obstacle Crow e FPV Crow representam os produtores de dados. Cada um destes se responsabiliza por um conjunto de informações diferente. Para este trabalho, a implementação será restringida ao Aircraft Crow, sistema instalado na aeronave para monitoramento das principais informações, conforme exigido pelo requisito RF.01.
+
+A Imagem \ref{fig:diagrama-comunicacao} representa quais os componentes que se comunicam. É fundamental que nenhum componente de aquisição interaja diretamente com o Odin, exigindo a passagem pelo middleware para garantir consistência nas leituras. Além disso, para esta direção dos caminhos, o sistema deve priorizar a velocidade da entrega dos pacotes. Em contrapartida, o caminho de volta -- pacotes originados no Odin com destino aos componentes produtores -- deve priorizar a estabilidade e certeza da entrega para que o operador tenha um \textit{feedback} confiável do seu comando.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=1\textwidth]{images/design_comunicacao.png}
+    \caption{Componentes distribuidos}
+    \label{fig:diagrama-comunicacao}
+\end{figure}
+
+\section{Camada física}
+Requisito de bitrate, requisitos de alcance, consumo energético dos módulos, trade-off da frequência (alcance vs taxa de transmissão), comparativo entre opções comerciais.
 
 \begin{figure}[ht]
     \centering
@@ -34,8 +47,8 @@ Escolha da antena e módulo RF
     \label{fig:camada-fisica}
 \end{figure}
 
-\subsection{Camada de transporte}
-Escolha dos protocolos
+\section{Camada de transporte}
+Escolha dos protocolos, UDP vs TCP, mavlink.
 
 \begin{figure}[ht]
     \centering
