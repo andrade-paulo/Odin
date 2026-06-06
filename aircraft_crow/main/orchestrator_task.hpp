@@ -3,8 +3,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
-#include "domain/telemetry_dto.hpp"
-#include "domain/telemetry_orchestrator.hpp" 
+#include "telemetry_dto.hpp"
+#include "telemetry_orchestrator.hpp" 
 
 class OrchestratorTask {
 public:

@@ -23,6 +23,11 @@ void TelemetryOrchestrator::setRecordingMode(bool isRecording) {
 }
 
 
+TelemetryDTO TelemetryOrchestrator::applyFiltersAndQuantize(const TelemetryDTO& rawPacket) {
+    return rawPacket;
+}
+
+
 void TelemetryOrchestrator::processSensorData(const TelemetryDTO& rawPacket) {
     if (_currentState != SystemState::RECORDING) {
         return;
