@@ -41,6 +41,7 @@ flasher_args.json.in
 .python_env/
 venv/
 env/
+*.venv/
 __pycache__/
 *.pyc
 
