@@ -6,6 +6,8 @@ constexpr uint32_t TASK_STACK_SIZE = 4096; // Adjust based on filtering math req
 constexpr uint8_t TASK_PRIORITY = 5;       // High priority for the main logic loop
 constexpr BaseType_t CORE_1 = 1;           // Pin to APP_CPU
 
+static const char* TAG = "ORCHESTRATOR_TASK";
+
 OrchestratorTask::OrchestratorTask(TelemetryOrchestrator* coreOrchestrator) 
     : _coreOrchestrator(coreOrchestrator), _taskHandle(nullptr) {
     
@@ -67,6 +69,8 @@ void OrchestratorTask::runLoop() {
             if (incomingEvent.type == MessageType::COMMAND) {
                 // Handle the PWM state trigger
                 bool start = (incomingEvent.payload.command == CommandType::START_RECORDING);
+                // Log start value
+                ESP_LOGI(TAG, "Received command: %s", start ? "START_RECORDING" : "STOP_RECORDING");
                 _coreOrchestrator->setRecordingMode(start);
             } 
             else {

@@ -37,6 +37,8 @@ extern "C" void app_main() {
     ConsumerUartHilTask* consumerTask = new ConsumerUartHilTask();
     if (consumerTask->start()) {
         ESP_LOGI(TAG, "[OK] ConsumerUartHilTask rodando no Core 0.");
+    } else {
+        ESP_LOGI(TAG, "[ERROR] Consumer HIL task falhou");
     }
 
     TelemetryOrchestrator* coreOrchestrator = new TelemetryOrchestrator(consumerTask, logger, indicator);
@@ -44,6 +46,8 @@ extern "C" void app_main() {
     OrchestratorTask* orchestratorTask = new OrchestratorTask(coreOrchestrator);
     if (orchestratorTask->start()) {
         ESP_LOGI(TAG, "[OK] OrchestratorTask rodando no Core 1.");
+    } else {
+        ESP_LOGI(TAG, "[ERROR] Orchestrator task falhou");
     }
 
     ProducerUartHilTask* hilTask = new ProducerUartHilTask(orchestratorTask);

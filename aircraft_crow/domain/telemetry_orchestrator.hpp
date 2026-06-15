@@ -4,6 +4,7 @@
 #include "port_telemetry_logger.hpp"
 #include "port_system_indicator.hpp"
 #include "telemetry_dto.hpp"
+#include "esp_log.h"
 
 class TelemetryOrchestrator {
 private:
@@ -16,7 +17,7 @@ private:
 
 public:
     TelemetryOrchestrator(ITelemetrySender* sender, ITelemetryLogger* logger, ISystemIndicator* indicator) 
-        : _currentState(SystemState::POWER_UP), _sender(sender), _logger(logger), _indicator(indicator) {}
+        : _currentState(SystemState::IDLE), _sender(sender), _logger(logger), _indicator(indicator) {}
 
     void finishCalibration();
 

@@ -10,7 +10,7 @@
 
 class ConsumerUartHilTask : public ITelemetrySender {
 public:
-    explicit ConsumerUartHilTask(uart_port_t uartNum = UART_NUM_2);
+    explicit ConsumerUartHilTask(uart_port_t uartNum = UART_NUM_0);
     ~ConsumerUartHilTask();
 
     bool start();

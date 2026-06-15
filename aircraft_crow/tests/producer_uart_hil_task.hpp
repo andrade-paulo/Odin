@@ -18,11 +18,9 @@ class OrchestratorTask;
 
 class ProducerUartHilTask {
 public:
-    // Utiliza a UART2 por padrão (Pinos do GPS no esquemático: RX=16, TX=17)
-    explicit ProducerUartHilTask(OrchestratorTask* orchestratorTask, uart_port_t uartNum = UART_NUM_2);
+    explicit ProducerUartHilTask(OrchestratorTask* orchestratorTask, uart_port_t uartNum = UART_NUM_0);
     ~ProducerUartHilTask();
 
-    // Inicializa a UART e levanta a task no Core 0
     bool start();
 
 private:

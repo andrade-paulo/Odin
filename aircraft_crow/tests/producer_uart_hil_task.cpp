@@ -32,8 +32,7 @@ bool ProducerUartHilTask::start() {
     ESP_ERROR_CHECK(uart_driver_install(_uartNum, 1024, 1024, 0, NULL, 0));
     ESP_ERROR_CHECK(uart_param_config(_uartNum, &uart_config));
     
-    // RX2 = GPIO 16, TX2 = GPIO 17 (Pinos definidos no Kicad para navegação)
-    ESP_ERROR_CHECK(uart_set_pin(_uartNum, 17, 16, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    ESP_ERROR_CHECK(uart_set_pin(_uartNum, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
     BaseType_t result = xTaskCreatePinnedToCore(
         ProducerUartHilTask::taskEntry,
@@ -58,7 +57,7 @@ void ProducerUartHilTask::runLoop() {
     char lineBuffer[256];
     int linePos = 0;
 
-    ESP_LOGI(TAG, "HIL Task iniciada no Core 0. Aguardando dados na UART2 (GPIO 16)...");
+    ESP_LOGI(TAG, "HIL Task iniciada no Core 0. Aguardando dados na UART0");
 
     while (true) {
         // Bloqueia com pequeno timeout aguardando pacotes do PC
@@ -95,7 +94,7 @@ void ProducerUartHilTask::parseAndPush(char* line) {
         if (cmdStr != nullptr) {
             dto.type = MessageType::COMMAND;
             dto.payload.command = (strcmp(cmdStr, "START") == 0) ? 
-                                   CommandType::START_RECORDING : CommandType::STOP_RECORDING;
+            CommandType::START_RECORDING : CommandType::STOP_RECORDING;
             _orchestratorTask->pushEvent(dto);
         }
     } 
@@ -111,6 +110,7 @@ void ProducerUartHilTask::parseAndPush(char* line) {
         dto.payload.imu.rotation_speed_z = atof(strtok(NULL, ","));
         
         // Empurra o evento para a Fila do FreeRTOS
+        //ESP_LOGI(TAG, "IMU event");
         _orchestratorTask->pushEvent(dto);
     }
     // Ex: "BARO,1234,150.5,101325.0"
@@ -120,6 +120,7 @@ void ProducerUartHilTask::parseAndPush(char* line) {
         dto.payload.barometer.altitude = atof(strtok(NULL, ","));
         dto.payload.barometer.pressure = atof(strtok(NULL, ","));
         
+        //ESP_LOGI(TAG, "BARO event");
         _orchestratorTask->pushEvent(dto);
     }
 }

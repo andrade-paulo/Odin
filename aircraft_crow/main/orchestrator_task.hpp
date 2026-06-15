@@ -3,6 +3,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "esp_log.h"
+
 #include "telemetry_dto.hpp"
 #include "telemetry_orchestrator.hpp" 
 

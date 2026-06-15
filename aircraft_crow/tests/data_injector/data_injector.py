@@ -1,6 +1,7 @@
 import serial
 import time
 import math
+import random
 
 
 PORTA_SERIAL = '/dev/ttyUSB0'  
@@ -12,12 +13,12 @@ def iniciar_simulacao():
         print(f"Tentando conectar na porta {PORTA_SERIAL} a {BAUD_RATE} bps...")
         esp32 = serial.Serial(PORTA_SERIAL, BAUD_RATE, timeout=1)
         
-        time.sleep(2)
-        print("Conexão estabelecida com sucesso!")
-
+        print("Aguardando boot do ESP32...")
+        time.sleep(4)
+        
         print("Enviando comando para mudar o estado para RECORDING...")
         esp32.write(b"CMD,START\n")
-        time.sleep(1)
+        time.sleep(0.5)
 
         print("Iniciando injeção de telemetria HIL. Pressione Ctrl+C para parar.")
         
@@ -32,24 +33,28 @@ def iniciar_simulacao():
             accel_z = 9.81 + (math.sin(timestamp_ms / 100.0) * 0.5)
 
             # Formato IMU: IMU,timestamp,accel_x,accel_y,accel_z,gyro_x,gyro_y,gyro_z
-            msg_imu = f"IMU,{timestamp_ms},0.0,0.0,{accel_z:.2f},0.0,0.0,0.0\n"
-            
-            # Formato BARO: BARO,timestamp,altitude,pressao
-            msg_baro = f"BARO,{timestamp_ms},{altitude_simulada:.2f},{pressao_simulada:.2f}\n"
+            if random.randint(0, 1) >= 0.1:            
+                msg_imu = f"IMU,{timestamp_ms},0.0,0.0,{accel_z:.2f},0.0,0.0,0.0\n"
+                esp32.write(msg_imu.encode('ascii'))
+                print(f"Injetado [{timestamp_ms}ms]: ACC_Z={accel_z:.2f}m/s2")
 
-            esp32.write(msg_imu.encode('ascii'))
-            esp32.write(msg_baro.encode('ascii'))
-
-            print(f"Injetado [{timestamp_ms}ms]: ALT={altitude_simulada:.1f}m | ACC_Z={accel_z:.2f}m/s2")
+            if random.randint(0, 1) >= 0.3:            
+                # Formato BARO: BARO,timestamp,altitude,pressao
+                msg_baro = f"BARO,{timestamp_ms},{altitude_simulada:.2f},{pressao_simulada:.2f}\n"
+                esp32.write(msg_baro.encode('ascii'))
+                print(f"Injetado [{timestamp_ms}ms]: ALT={altitude_simulada:.1f}m")
 
             while esp32.in_waiting > 0:
-                resposta = esp32.readline().decode('ascii', errors='ignore').strip()
-                if resposta:
-                    print(f"<- Retorno HIL: {resposta}")
+                linha = esp32.readline().decode('ascii', errors='ignore').strip()
+                if linha.startswith("TX_"):
+                    # Captura os dados de retorno do Consumer HIL
+                    print(f"<- Retorno HIL: {linha}")
+                elif linha:
+                    # Captura e exibe os logs normais do ESP-IDF (I, W, E)
+                    print(f"[ESP32 LOG] {linha}")
+            
 
             timestamp_ms += 100
-            
-            # Frequência de ~10Hz para o teste
             time.sleep(0.1)
 
     except serial.SerialException as e:

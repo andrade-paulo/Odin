@@ -37,7 +37,6 @@ bool ConsumerUartHilTask::start() {
 }
 
 void ConsumerUartHilTask::sendPacket(const TelemetryDTO& packet) {
-    // Chamado pelo Core 1. Empurra o dado para a fila e retorna imediatamente.
     if (_txQueue) {
         xQueueSend(_txQueue, &packet, 0); // Timeout 0 para não travar o Core
     }
@@ -52,13 +51,13 @@ void ConsumerUartHilTask::runLoop() {
     TelemetryDTO packet;
     char txBuffer[128];
 
-    ESP_LOGI(TAG, "Consumer HIL Task iniciada no Core 0 (TX na UART2).");
+    ESP_LOGI(TAG, "Consumer HIL Task iniciada no Core 0.");
 
     while (true) {
         // Aguarda indefinidamente até que o Orchestrator empurre um pacote
         if (xQueueReceive(_txQueue, &packet, portMAX_DELAY) == pdTRUE) {
             int len = 0;
-            
+
             // Serializa o DTO estruturado de volta para uma string legível no HIL
             if (packet.type == MessageType::IMU) {
                 len = snprintf(txBuffer, sizeof(txBuffer), "TX_IMU,%lu,%.2f,%.2f,%.2f\n",
@@ -68,9 +67,9 @@ void ConsumerUartHilTask::runLoop() {
                                packet.payload.imu.linear_acceleration_z);
             } else if (packet.type == MessageType::BARO) {
                 len = snprintf(txBuffer, sizeof(txBuffer), "TX_BARO,%lu,%.2f,%.2f\n",
-                               packet.payload.barometer.timestamp_ms,
-                               packet.payload.barometer.altitude,
-                               packet.payload.barometer.pressure);
+                packet.payload.barometer.timestamp_ms,
+                packet.payload.barometer.altitude,
+                packet.payload.barometer.pressure);
             }
 
             // Escreve no buffer físico da UART
