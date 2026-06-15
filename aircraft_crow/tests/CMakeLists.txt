@@ -1,6 +1,7 @@
 idf_component_register(
   SRCS 
-    "uart_hil_task.cpp"
+    "producer_uart_hil_task.cpp"
+    "consumer_uart_hil_task.cpp"
   INCLUDE_DIRS 
     "."
   REQUIRES 

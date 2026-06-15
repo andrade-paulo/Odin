@@ -3,7 +3,7 @@ import time
 import math
 
 
-PORTA_SERIAL = 'ACM0'  
+PORTA_SERIAL = '/dev/ttyUSB0'  
 BAUD_RATE = 115200
 
 
@@ -41,6 +41,11 @@ def iniciar_simulacao():
             esp32.write(msg_baro.encode('ascii'))
 
             print(f"Injetado [{timestamp_ms}ms]: ALT={altitude_simulada:.1f}m | ACC_Z={accel_z:.2f}m/s2")
+
+            while esp32.in_waiting > 0:
+                resposta = esp32.readline().decode('ascii', errors='ignore').strip()
+                if resposta:
+                    print(f"<- Retorno HIL: {resposta}")
 
             timestamp_ms += 100
             

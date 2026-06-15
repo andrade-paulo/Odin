@@ -1,9 +1,5 @@
-#include "uart_hil_task.hpp"
-#include "orchestrator_task.hpp" 
-#include "esp_log.h"
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "producer_uart_hil_task.hpp"
+
 
 static const char* TAG = "HIL_EMULATOR";
 
@@ -11,17 +7,17 @@ constexpr uint32_t HIL_TASK_STACK_SIZE = 4096;
 constexpr uint8_t HIL_TASK_PRIORITY = 6; // Prioridade alta para não perder pacotes seriais
 constexpr BaseType_t CORE_0 = 0;         // Fixado no PRO_CPU para não travar o FSM
 
-UartHilTask::UartHilTask(OrchestratorTask* orchestratorTask, uart_port_t uartNum)
+ProducerUartHilTask::ProducerUartHilTask(OrchestratorTask* orchestratorTask, uart_port_t uartNum)
     : _orchestratorTask(orchestratorTask), _uartNum(uartNum), _taskHandle(nullptr) {}
 
-UartHilTask::~UartHilTask() {
+ProducerUartHilTask::~ProducerUartHilTask() {
     if (_taskHandle != nullptr) {
         vTaskDelete(_taskHandle);
     }
     uart_driver_delete(_uartNum);
 }
 
-bool UartHilTask::start() {
+bool ProducerUartHilTask::start() {
     // Zero-initialize the entire structure first to prevent missing initializer errors
     uart_config_t uart_config = {};
     
@@ -33,16 +29,15 @@ bool UartHilTask::start() {
     uart_config.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
     uart_config.source_clk = UART_SCLK_APB;
 
-    // Buffer de RX de 1024 bytes, sem buffer de TX (apenas ouvimos)
-    ESP_ERROR_CHECK(uart_driver_install(_uartNum, 1024, 0, 0, NULL, 0));
+    ESP_ERROR_CHECK(uart_driver_install(_uartNum, 1024, 1024, 0, NULL, 0));
     ESP_ERROR_CHECK(uart_param_config(_uartNum, &uart_config));
     
     // RX2 = GPIO 16, TX2 = GPIO 17 (Pinos definidos no Kicad para navegação)
     ESP_ERROR_CHECK(uart_set_pin(_uartNum, 17, 16, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
     BaseType_t result = xTaskCreatePinnedToCore(
-        UartHilTask::taskEntry,
-        "UartHilTask",
+        ProducerUartHilTask::taskEntry,
+        "ProducerUartHilTask",
         HIL_TASK_STACK_SIZE,
         this,
         HIL_TASK_PRIORITY,
@@ -53,12 +48,12 @@ bool UartHilTask::start() {
     return result == pdPASS;
 }
 
-void UartHilTask::taskEntry(void* pvParameters) {
-    UartHilTask* instance = static_cast<UartHilTask*>(pvParameters);
+void ProducerUartHilTask::taskEntry(void* pvParameters) {
+    ProducerUartHilTask* instance = static_cast<ProducerUartHilTask*>(pvParameters);
     instance->runLoop();
 }
 
-void UartHilTask::runLoop() {
+void ProducerUartHilTask::runLoop() {
     uint8_t data[256];
     char lineBuffer[256];
     int linePos = 0;
@@ -87,7 +82,7 @@ void UartHilTask::runLoop() {
     }
 }
 
-void UartHilTask::parseAndPush(char* line) {
+void ProducerUartHilTask::parseAndPush(char* line) {
     TelemetryDTO dto;
     
     // Obtém o primeiro token (o cabeçalho da mensagem)

@@ -1,6 +1,7 @@
 # Ignore build artifacts produced by ESP-IDF/CMake
 /build/
 /**/build/
+./build/
 
 # SDK config files (keep out of repo if you customize per-device)
 sdkconfig
