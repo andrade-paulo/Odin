@@ -1,3 +1,5 @@
+#pragma once
+
 #include "telemetry_dto.hpp"
 
 class ITelemetrySender {
