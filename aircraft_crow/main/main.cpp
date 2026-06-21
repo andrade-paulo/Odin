@@ -42,7 +42,7 @@ extern "C" void app_main(void) {
     auto* core = new TelemetryOrchestrator(uartSender, nullptr, nullptr);
     auto* orchestratorTask = new OrchestratorTask(core);
 
-    auto* i2cBus = new I2cBusManager(I2C_NUM_0, 21, 22, 100000); // 400kHz
+    auto* i2cBus = new I2cBusManager(I2C_NUM_0, 21, 22, 400000); // 400kHz
     if (!i2cBus->init()) {
         ESP_LOGE("MAIN", "Falha catastrofica no I2C. Abortando sensores.");
         // Estado de erro
@@ -53,11 +53,7 @@ extern "C" void app_main(void) {
 
     auto* imu = new ImuTask(orchestratorTask, i2cBus);
     auto* baro = new BarometerTask(orchestratorTask, i2cBus);
-    
-    // RX=16 e TX=17
-    auto* gps = new GpsTask(orchestratorTask, UART_NUM_2, 17, 16); 
-
-    core->setSensorControls(imu, baro, gps);
+    auto* gps = new GpsTask(orchestratorTask, UART_NUM_2, 17, 16);
 
     uartSender->start();
     orchestratorTask->start();
@@ -70,6 +66,6 @@ extern "C" void app_main(void) {
 
     ESP_LOGI("MAIN", "Kernel operacional. Sensores ativos.");
     
-    // A app_main pode morrer ou entrar em loop ocioso
+    // A app_main pode encerrar ou entrar em loop ocioso
     vTaskDelete(NULL); 
 }
