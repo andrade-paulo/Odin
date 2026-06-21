@@ -3,35 +3,27 @@
 static const char* TAG = "TELEMETRY_ORCH";
 
 
-void TelemetryOrchestrator::finishCalibration() {
-    if (_currentState == SystemState::CALIBRATING) {
-        _currentState = SystemState::IDLE;
-        _indicator->indicateState(_currentState);
-    }
-}
-
-
 void TelemetryOrchestrator::setRecordingMode(bool isRecording) {
     // Log current state and requested action
     ESP_LOGI(TAG, "Current state: %d, Requested recording: %s", _currentState, isRecording ? "START" : "STOP");
     if (isRecording && _currentState == SystemState::IDLE) {
         _currentState = SystemState::RECORDING;
         _logger->openLog();
-        _indicator->indicateState(_currentState);
-        ESP_LOGI(TAG, "System recording");
+        if (_indicator != nullptr) {
+            _indicator->indicateState(_currentState);
+        } 
     }
     else if (!isRecording && _currentState == SystemState::RECORDING) {
         _currentState = SystemState::IDLE;
         _logger->closeLog();
-        _indicator->indicateState(_currentState);
-        ESP_LOGI(TAG, "System not recording");
+        if (_indicator != nullptr) {
+            _indicator->indicateState(_currentState);
+        }
     }
-
-    ESP_LOGI(TAG, "Nenhum dos dois :(");
 }
 
 
-TelemetryDTO TelemetryOrchestrator::applyFiltersAndQuantize(const TelemetryDTO& rawPacket) {
+TelemetryDTO TelemetryOrchestrator::quantize(const TelemetryDTO& rawPacket) {
     return rawPacket;
 }
 
@@ -41,9 +33,11 @@ void TelemetryOrchestrator::processSensorData(const TelemetryDTO& rawPacket) {
         return;
     }
 
-    _logger->logRawPacket(rawPacket);
+    if (_logger != nullptr) {
+        _logger->logRawPacket(rawPacket);
+    }
 
-    TelemetryDTO processedPacket = applyFiltersAndQuantize(rawPacket);
+    TelemetryDTO processedPacket = quantize(rawPacket);
 
     _sender->sendPacket(processedPacket);
 }

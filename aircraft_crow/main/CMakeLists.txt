@@ -1,11 +1,5 @@
 idf_component_register(
-  SRCS 
-    "main.cpp" 
-    "orchestrator_task.cpp"
-  INCLUDE_DIRS 
-    "."
-  REQUIRES 
-    "domain"
-    "tests"
-    "driver"
+    SRCS "main.cpp"
+    INCLUDE_DIRS "."
+    REQUIRES domain sensors hardware_abstraction sys tests freertos
 )

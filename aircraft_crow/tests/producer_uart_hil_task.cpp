@@ -117,8 +117,8 @@ void ProducerUartHilTask::parseAndPush(char* line) {
     else if (strcmp(typeStr, "BARO") == 0) {
         dto.type = MessageType::BARO;
         dto.payload.barometer.timestamp_ms = (uint32_t)atoi(strtok(NULL, ","));
-        dto.payload.barometer.altitude = atof(strtok(NULL, ","));
-        dto.payload.barometer.pressure = atof(strtok(NULL, ","));
+        dto.payload.barometer.temperature_c = atof(strtok(NULL, ","));
+        dto.payload.barometer.pressure_pa = atof(strtok(NULL, ","));
         
         //ESP_LOGI(TAG, "BARO event");
         _orchestratorTask->pushEvent(dto);

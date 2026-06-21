@@ -3,7 +3,6 @@
 #include <cstdint>
 
 
-// TODO: Quantization
 struct ImuPayload {
     uint32_t timestamp_ms;
 
@@ -21,19 +20,18 @@ struct ImuPayload {
 struct BarometerPayload {
     uint32_t timestamp_ms;
 
-    // Altitude using meters
-    float altitude;
-
-    // Pressure using Pa
-    float pressure;
+    float pressure_pa;
+    float temperature_c;
 };
 
 struct GpsPayload {
     uint32_t timestamp_ms;
 
-    // Degrees
+    int satellites;
     float latitude;
     float longitude;
+    float altitude_msl;
+    float ground_speed_ms;
 };
 
 
