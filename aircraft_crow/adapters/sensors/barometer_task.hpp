@@ -5,9 +5,9 @@
 
 #include "orchestrator_task.hpp"
 #include "i2c_bus_manager.hpp"
-#include "ports/port_barometer.hpp"
+#include "ports/port_sensor.hpp"
 
-class BarometerTask : public IBarometerSensor {
+class BarometerTask : public ISensor {
 public:
     BarometerTask(OrchestratorTask* orchestrator, I2cBusManager* i2cBus);
     ~BarometerTask() = default;
@@ -19,6 +19,7 @@ public:
 
     // Contratos da Port
     bool isHealthy() override;
+    void calibrate() override;
 
 private:
     OrchestratorTask* _orchestrator;

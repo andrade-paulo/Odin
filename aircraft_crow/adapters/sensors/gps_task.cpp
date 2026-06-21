@@ -59,6 +59,8 @@ bool GpsTask::isHealthy() {
     return uart_is_driver_installed(_uartNum);
 }
 
+void GpsTask::calibrate() { return; }
+
 bool GpsTask::configureAirborneModel() {
     ESP_LOGI(TAG, "Configurando U-blox para Airborne < 4G...");
     

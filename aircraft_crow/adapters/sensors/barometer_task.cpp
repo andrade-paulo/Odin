@@ -43,6 +43,8 @@ bool BarometerTask::isHealthy() {
     return _i2cBus->writeCommand(MS5611_ADDR, CMD_RESET);
 }
 
+void BarometerTask::calibrate() { return; }
+
 bool BarometerTask::readFactoryCalibration() {
     uint8_t buffer[2];
     // O MS5611 tem 6 coeficientes principais (C1 a C6) localizados em 0xA2 até 0xAC

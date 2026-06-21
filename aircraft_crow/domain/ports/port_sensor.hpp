@@ -1,8 +1,8 @@
 #pragma once
 
-class IImuSensor {
+class ISensor {
 public:
-    virtual ~IImuSensor() = default;
+    virtual ~ISensor() = default;
     
     virtual void calibrate() = 0;
     
