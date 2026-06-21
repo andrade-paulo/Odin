@@ -9,12 +9,16 @@ void TelemetryOrchestrator::setRecordingMode(bool isRecording) {
     if (isRecording && _currentState == SystemState::IDLE) {
         _currentState = SystemState::RECORDING;
         _logger->openLog();
-        _indicator->indicateState(_currentState);
+        if (_indicator != nullptr) {
+            _indicator->indicateState(_currentState);
+        } 
     }
     else if (!isRecording && _currentState == SystemState::RECORDING) {
         _currentState = SystemState::IDLE;
         _logger->closeLog();
-        _indicator->indicateState(_currentState);
+        if (_indicator != nullptr) {
+            _indicator->indicateState(_currentState);
+        }
     }
 }
 
@@ -29,7 +33,9 @@ void TelemetryOrchestrator::processSensorData(const TelemetryDTO& rawPacket) {
         return;
     }
 
-    _logger->logRawPacket(rawPacket);
+    if (_logger != nullptr) {
+        _logger->logRawPacket(rawPacket);
+    }
 
     TelemetryDTO processedPacket = quantize(rawPacket);
 

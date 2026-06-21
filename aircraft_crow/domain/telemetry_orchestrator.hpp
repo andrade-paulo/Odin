@@ -26,10 +26,16 @@ private:
     TelemetryDTO quantize(const TelemetryDTO& rawPacket);
 
 public:
-    TelemetryOrchestrator(ITelemetrySender* sender, ITelemetryLogger* logger, ISystemIndicator* indicator, IImuSensor* imu, IBarometerSensor* barometer, IGpsSensor* gps)
-        : _currentState(SystemState::IDLE), _sender(sender), _logger(logger), _indicator(indicator), _imu(imu), _barometer(barometer), _gps(gps) {}
+    TelemetryOrchestrator(ITelemetrySender* sender, ITelemetryLogger* logger, ISystemIndicator* indicator)
+        : _currentState(SystemState::RECORDING), _sender(sender), _logger(logger), _indicator(indicator) {}
 
     void setRecordingMode(bool isRecording);
 
     void processSensorData(const TelemetryDTO& rawPacket);
+
+    void setSensorControls(IImuSensor* imu, IBarometerSensor* baro, IGpsSensor* gps) {
+        _imu = imu;
+        _barometer = baro;
+        _gps = gps;
+    }
 };

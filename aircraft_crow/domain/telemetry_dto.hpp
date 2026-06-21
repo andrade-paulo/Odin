@@ -27,9 +27,11 @@ struct BarometerPayload {
 struct GpsPayload {
     uint32_t timestamp_ms;
 
-    // Degrees
+    int satellites;
     float latitude;
     float longitude;
+    float altitude_msl;
+    float ground_speed_ms;
 };
 
 

@@ -34,5 +34,5 @@ private:
     bool configureAirborneModel();
     
     // Função auxiliar para validar o Checksum de sentenças NMEA/UBX
-    bool validateChecksum(const uint8_t* buffer, size_t len);
+    bool validateChecksum(const char* sentence);
 };

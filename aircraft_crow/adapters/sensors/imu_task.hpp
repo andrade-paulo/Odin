@@ -6,7 +6,7 @@
 
 // Injeções de Dependência
 #include "orchestrator_task.hpp"
-#include "hal/i2c_bus_manager.hpp"
+#include "i2c_bus_manager.hpp"
 
 // A Port que esta Task implementa (Driven Adapter)
 #include "ports/port_imu.hpp"

@@ -1,5 +1,6 @@
 #include "consumer_uart_hil_task.hpp"
 #include "esp_log.h"
+#include "driver/uart.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -23,6 +24,23 @@ ConsumerUartHilTask::~ConsumerUartHilTask() {
 bool ConsumerUartHilTask::start() {
     if (!_txQueue) return false;
 
+    // --- CONFIGURAÇÃO DA UART ---
+    uart_config_t uart_config = {}; // Zera toda a memória da struct (cobre qualquer versão do ESP-IDF)
+    uart_config.baud_rate = 115200;
+    uart_config.data_bits = UART_DATA_8_BITS;
+    uart_config.parity = UART_PARITY_DISABLE;
+    uart_config.stop_bits = UART_STOP_BITS_1;
+    uart_config.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+    uart_config.source_clk = UART_SCLK_DEFAULT;
+    
+    // Verifique se o driver já não está instalado pelo ESP_LOG
+    if (!uart_is_driver_installed(_uartNum)) {
+        ESP_ERROR_CHECK(uart_driver_install(_uartNum, 256, 0, 0, NULL, 0));
+        ESP_ERROR_CHECK(uart_param_config(_uartNum, &uart_config));
+        ESP_ERROR_CHECK(uart_set_pin(_uartNum, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    }
+    // ----------------------------
+
     BaseType_t result = xTaskCreatePinnedToCore(
         ConsumerUartHilTask::taskEntry,
         "ConsumerUartHilTask",
@@ -37,8 +55,10 @@ bool ConsumerUartHilTask::start() {
 }
 
 void ConsumerUartHilTask::sendPacket(const TelemetryDTO& packet) {
+    // Chamado pelo Core (Core 1). O timeout 0 garante que o Domínio puro 
+    // nunca fique bloqueado caso o cabo serial trave.
     if (_txQueue) {
-        xQueueSend(_txQueue, &packet, 0); // Timeout 0 para não travar o Core
+        xQueueSend(_txQueue, &packet, 0); 
     }
 }
 
@@ -49,27 +69,43 @@ void ConsumerUartHilTask::taskEntry(void* pvParameters) {
 
 void ConsumerUartHilTask::runLoop() {
     TelemetryDTO packet;
-    char txBuffer[128];
+    char txBuffer[256]; // Tamanho aumentado para comportar strings de GPS grandes
 
     ESP_LOGI(TAG, "Consumer HIL Task iniciada no Core 0.");
 
     while (true) {
-        // Aguarda indefinidamente até que o Orchestrator empurre um pacote
+        // Aguarda indefinidamente até que o Orchestrator empurre um pacote para a porta
         if (xQueueReceive(_txQueue, &packet, portMAX_DELAY) == pdTRUE) {
             int len = 0;
 
-            // Serializa o DTO estruturado de volta para uma string legível no HIL
+            // Serializa o DTO estruturado de volta para uma string CSV legível no PC
             if (packet.type == MessageType::IMU) {
-                len = snprintf(txBuffer, sizeof(txBuffer), "TX_IMU,%lu,%.2f,%.2f,%.2f\n",
+                // IMU, timestamp, Ax, Ay, Az, Gx, Gy, Gz
+                len = snprintf(txBuffer, sizeof(txBuffer), "IMU,%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
                                packet.payload.imu.timestamp_ms,
                                packet.payload.imu.linear_acceleration_x,
                                packet.payload.imu.linear_acceleration_y,
-                               packet.payload.imu.linear_acceleration_z);
+                               packet.payload.imu.linear_acceleration_z,
+                               packet.payload.imu.rotation_speed_x,
+                               packet.payload.imu.rotation_speed_y,
+                               packet.payload.imu.rotation_speed_z);
+                               
             } else if (packet.type == MessageType::BARO) {
-                len = snprintf(txBuffer, sizeof(txBuffer), "TX_BARO,%lu,%.2f,%.2f\n",
-                packet.payload.barometer.timestamp_ms,
-                packet.payload.barometer.altitude,
-                packet.payload.barometer.pressure);
+                // BARO, timestamp, Pressao (Pa), Temp (C)
+                len = snprintf(txBuffer, sizeof(txBuffer), "BARO,%lu,%.2f,%.2f\n",
+                               packet.payload.barometer.timestamp_ms,
+                               packet.payload.barometer.pressure_pa,
+                               packet.payload.barometer.temperature_c);
+                               
+            } else if (packet.type == MessageType::GPS) {
+                // GPS, timestamp, sats, Lat, Lon, Alt (msl), Ground Speed (m/s)
+                len = snprintf(txBuffer, sizeof(txBuffer), "GPS,%lu,%d,%.6f,%.6f,%.2f,%.2f\n",
+                               packet.payload.gps.timestamp_ms,
+                               packet.payload.gps.satellites,
+                               packet.payload.gps.latitude,
+                               packet.payload.gps.longitude,
+                               packet.payload.gps.altitude_msl,
+                               packet.payload.gps.ground_speed_ms);
             }
 
             // Escreve no buffer físico da UART

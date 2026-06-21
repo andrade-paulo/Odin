@@ -142,11 +142,9 @@ void GpsTask::runLoop() {
                             
                             // 2. Latitude Bruta e 3. N/S
                             char* latStr = strtok_r(NULL, ",", &saveptr);
-                            char* latDir = strtok_r(NULL, ",", &saveptr);
                             
                             // 4. Longitude Bruta e 5. E/W
                             char* lonStr = strtok_r(NULL, ",", &saveptr);
-                            char* lonDir = strtok_r(NULL, ",", &saveptr);
                             
                             // 6. Qualidade do Fix (0 = Sem sinal, 1 = Fix GPS, 2 = DGPS)
                             char* fixQuality = strtok_r(NULL, ",", &saveptr);

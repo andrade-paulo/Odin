@@ -30,8 +30,8 @@ bool I2cBusManager::init() {
 
     i2c_config_t conf = {};
     conf.mode = I2C_MODE_MASTER;
-    conf.sda_io_num = _sdaPin;
-    conf.scl_io_num = _sclPin;
+    conf.sda_io_num = static_cast<gpio_num_t>(_sdaPin);
+    conf.scl_io_num = static_cast<gpio_num_t>(_sclPin);
     conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
     conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
     conf.master.clk_speed = _clockSpeedHz;
@@ -51,6 +51,15 @@ bool I2cBusManager::init() {
 
     ESP_LOGI(TAG, "Barramento I2C inicializado (Porta %d, SDA %d, SCL %d, %lu Hz)", 
              _port, _sdaPin, _sclPin, _clockSpeedHz);
+
+    if (_mutex == nullptr) {
+        _mutex = xSemaphoreCreateMutex();
+        if (_mutex == nullptr) {
+            ESP_LOGE("I2C_BUS", "Falha catastrófica ao criar o Mutex do I2C.");
+            return false;
+        }
+    }
+
     return true;
 }
 

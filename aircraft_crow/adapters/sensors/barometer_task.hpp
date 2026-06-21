@@ -4,7 +4,7 @@
 #include "freertos/task.h"
 
 #include "orchestrator_task.hpp"
-#include "hal/i2c_bus_manager.hpp"
+#include "i2c_bus_manager.hpp"
 #include "ports/port_barometer.hpp"
 
 class BarometerTask : public IBarometerSensor {
