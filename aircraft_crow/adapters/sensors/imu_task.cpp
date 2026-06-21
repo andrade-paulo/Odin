@@ -5,7 +5,7 @@ static const char* TAG = "IMU_TASK";
 
 // O pino AD0 no esquemático está desconectado. Se o módulo físico 
 // tiver pull-up interno, será 0x69. Se pull-down, 0x68.
-static const uint8_t ICM_ADDRESS = 0x69; 
+static const uint8_t ICM_ADDRESS = 0x68; 
 static const uint8_t REG_BANK_SEL = 0x7F;
 static const uint8_t REG_PWR_MGMT_1 = 0x06;
 static const uint8_t REG_ACCEL_XOUT_H = 0x2D;

@@ -3,7 +3,7 @@
 
 static const char* TAG = "BARO_TASK";
 
-static const uint8_t MS5611_ADDR = 0x76;
+static const uint8_t MS5611_ADDR = 0x77;
 static const uint8_t CMD_RESET = 0x1E;
 static const uint8_t CMD_PROM_READ_BASE = 0xA0;
 static const uint8_t CMD_CONVERT_D1_4096 = 0x48; // Pressão (Máxima Resolução)
@@ -119,7 +119,7 @@ void BarometerTask::runLoop() {
             }
 
             TelemetryDTO dto = {};
-            dto.type = MessageType::BAROMETER;
+            dto.type = MessageType::BARO;
             dto.payload.barometer.timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
             dto.payload.barometer.pressure_pa = _emaPressure;
             dto.payload.barometer.temperature_c = currentTemp_C;
