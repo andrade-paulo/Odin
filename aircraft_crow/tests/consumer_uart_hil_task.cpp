@@ -24,7 +24,6 @@ ConsumerUartHilTask::~ConsumerUartHilTask() {
 bool ConsumerUartHilTask::start() {
     if (!_txQueue) return false;
 
-    // --- CONFIGURAÇÃO DA UART ---
     uart_config_t uart_config = {}; // Zera toda a memória da struct (cobre qualquer versão do ESP-IDF)
     uart_config.baud_rate = 115200;
     uart_config.data_bits = UART_DATA_8_BITS;
@@ -39,7 +38,6 @@ bool ConsumerUartHilTask::start() {
         ESP_ERROR_CHECK(uart_param_config(_uartNum, &uart_config));
         ESP_ERROR_CHECK(uart_set_pin(_uartNum, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
     }
-    // ----------------------------
 
     BaseType_t result = xTaskCreatePinnedToCore(
         ConsumerUartHilTask::taskEntry,

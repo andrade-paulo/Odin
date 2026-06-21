@@ -39,7 +39,7 @@ extern "C" void app_main(void) {
 
     auto* uartSender = new ConsumerUartHilTask(); 
 
-    auto* core = new TelemetryOrchestrator(uartSender, nullptr, nullptr);
+    auto* core = new TelemetryOrchestrator(uartSender, nullptr, nullptr, nullptr);
     auto* orchestratorTask = new OrchestratorTask(core);
 
     auto* i2cBus = new I2cBusManager(I2C_NUM_0, 21, 22, 400000); // 400kHz

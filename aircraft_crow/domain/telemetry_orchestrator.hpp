@@ -17,12 +17,13 @@ private:
     ITelemetrySender* _sender;
     ITelemetryLogger* _logger;
     ISystemIndicator* _indicator;
+    IPilotReceiver* _pilot_receiver;
 
     TelemetryDTO quantize(const TelemetryDTO& rawPacket);
 
 public:
-    TelemetryOrchestrator(ITelemetrySender* sender, ITelemetryLogger* logger, ISystemIndicator* indicator)
-        : _currentState(SystemState::RECORDING), _sender(sender), _logger(logger), _indicator(indicator) {}
+    TelemetryOrchestrator(ITelemetrySender* sender, ITelemetryLogger* logger, ISystemIndicator* indicator, IPilotReceiver* pilot_receiver)
+        : _currentState(SystemState::RECORDING), _sender(sender), _logger(logger), _indicator(indicator), _pilot_receiver(pilot_receiver) {}
 
     void setRecordingMode(bool isRecording);
 
