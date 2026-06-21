@@ -6,6 +6,7 @@
 #include "port_telemetry_sender.hpp"
 #include "port_telemetry_logger.hpp"
 #include "port_system_indicator.hpp"
+#include "port_pilot_receiver.hpp"
 #include "port_sensor.hpp"
 
 #include "telemetry_dto.hpp"

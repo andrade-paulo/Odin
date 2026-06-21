@@ -32,6 +32,15 @@ bool ImuTask::start() {
         &_taskHandle,
         0               // Fixado no PRO_CPU (Core 0)
     );
+
+    // Habilitar I2C Bypass no ICM-20948 para acessar o Magnetômetro
+    uint8_t bypassCfg = 0x02; 
+    _i2cBus->writeRegister(ICM_ADDRESS, 0x0F, bypassCfg); // REG_INT_PIN_CFG
+
+    // Configurar AK09916 (Endereço 0x0C) para Modo Contínuo 100Hz
+    uint8_t magMode = 0x08; 
+    _i2cBus->writeRegister(0x0C, 0x31, magMode); // CNTL2 register
+
     return (result == pdPASS);
 }
 
@@ -57,12 +66,12 @@ bool ImuTask::isHealthy() {
 void ImuTask::runLoop() {
     ESP_LOGI(TAG, "Inicializando ICM-20948...");
 
-    // 1. Acorda o sensor (Limpa o sleep bit no banco 0)
+    // Acorda o sensor (Limpa o sleep bit no banco 0)
     _i2cBus->writeRegister(ICM_ADDRESS, REG_BANK_SEL, 0x00);
     _i2cBus->writeRegister(ICM_ADDRESS, REG_PWR_MGMT_1, 0x01); // Auto clock selection
     vTaskDelay(pdMS_TO_TICKS(50));
 
-    // 2. Muda para o Banco 2 para configurar os Filtros em Hardware (DLPF)
+    // Muda para o Banco 2 para configurar os Filtros em Hardware (DLPF)
     _i2cBus->writeRegister(ICM_ADDRESS, REG_BANK_SEL, 0x20); 
     
     // Configura Giroscópio: ±2000 dps, DLPF ativado
@@ -71,7 +80,7 @@ void ImuTask::runLoop() {
     // Configura Acelerômetro: ±4g, DLPF ativado
     _i2cBus->writeRegister(ICM_ADDRESS, 0x14, 0x0F); 
 
-    // 3. Volta para o Banco 0 para a máquina de leitura contínua
+    // Volta para o Banco 0 para a máquina de leitura contínua
     _i2cBus->writeRegister(ICM_ADDRESS, REG_BANK_SEL, 0x00);
 
     if (!isHealthy()) {
@@ -135,15 +144,32 @@ void ImuTask::runLoop() {
             dto.type = MessageType::IMU;
             dto.payload.imu.timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
             
-            // Aplicação da Escala (±4g = 8192 LSB/g) e conversão para m/s^2
-            dto.payload.imu.linear_acceleration_x = ((rawAx - _accelBiasX) / 8192.0f) * 9.81f;
-            dto.payload.imu.linear_acceleration_y = ((rawAy - _accelBiasY) / 8192.0f) * 9.81f;
-            dto.payload.imu.linear_acceleration_z = ((rawAz - _accelBiasZ) / 8192.0f) * 9.81f;
+            // Aceleração: (m/s²) * 100 -> int16_t
+            dto.payload.imu.linear_acceleration_x = (int16_t)((((rawAx - _accelBiasX) / 8192.0f) * 9.81f) * 100.0f);
+            dto.payload.imu.linear_acceleration_y = (int16_t)((((rawAy - _accelBiasY) / 8192.0f) * 9.81f) * 100.0f);
+            dto.payload.imu.linear_acceleration_z = (int16_t)((((rawAz - _accelBiasZ) / 8192.0f) * 9.81f) * 100.0f);
 
-            // Aplicação da Escala do Giroscópio (±2000 dps = 16.4 LSB/dps)
-            dto.payload.imu.rotation_speed_x = (rawGx - _gyroBiasX) / 16.4f;
-            dto.payload.imu.rotation_speed_y = (rawGy - _gyroBiasY) / 16.4f;
-            dto.payload.imu.rotation_speed_z = (rawGz - _gyroBiasZ) / 16.4f;
+            // Rotação: (°/s) * 10 -> int16_t
+            dto.payload.imu.rotation_speed_x = (int16_t)((((rawGx - _gyroBiasX) / 131.0f)) * 10.0f);
+            dto.payload.imu.rotation_speed_y = (int16_t)((((rawGy - _gyroBiasY) / 131.0f)) * 10.0f);
+            dto.payload.imu.rotation_speed_z = (int16_t)((((rawGz - _gyroBiasZ) / 131.0f)) * 10.0f);
+
+            // Leitura do Magnetômetro
+            // Precisamos ler 7 bytes a partir de 0x11: HXL, HXH, HYL, HYH, HZL, HZH e o ST2 
+            uint8_t magBuffer[7];
+            if (_i2cBus->readRegisters(0x0C, 0x11, magBuffer, 7)) {
+                // O AK09916 é Little Endian, diferente do ICM
+                int16_t rawMagX = (magBuffer[1] << 8) | magBuffer[0];
+                int16_t rawMagY = (magBuffer[3] << 8) | magBuffer[2];
+                int16_t rawMagZ = (magBuffer[5] << 8) | magBuffer[4];
+                
+                // Obs.: O AK09916 entrega dados diretos em 0.15 µT/LSB
+                // Estamos enviando os bits crus para preservar a escala
+                // A conversão para µT ou mG pode ser feita na estação
+                dto.payload.imu.magnetic_field_x = rawMagX;
+                dto.payload.imu.magnetic_field_y = rawMagY;
+                dto.payload.imu.magnetic_field_z = rawMagZ;
+            }
 
             _orchestrator->pushEvent(dto);
         } else {

@@ -79,25 +79,28 @@ void ConsumerUartHilTask::runLoop() {
             // Serializa o DTO estruturado de volta para uma string CSV legível no PC
             if (packet.type == MessageType::IMU) {
                 // IMU, timestamp, Ax, Ay, Az, Gx, Gy, Gz
-                len = snprintf(txBuffer, sizeof(txBuffer), "IMU,%lu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+                len = snprintf(txBuffer, sizeof(txBuffer), "IMU,%lu,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
                                packet.payload.imu.timestamp_ms,
                                packet.payload.imu.linear_acceleration_x,
                                packet.payload.imu.linear_acceleration_y,
                                packet.payload.imu.linear_acceleration_z,
                                packet.payload.imu.rotation_speed_x,
                                packet.payload.imu.rotation_speed_y,
-                               packet.payload.imu.rotation_speed_z);
+                               packet.payload.imu.rotation_speed_z,
+                               packet.payload.imu.magnetic_field_x,
+                               packet.payload.imu.magnetic_field_y,
+                               packet.payload.imu.magnetic_field_z);
                                
             } else if (packet.type == MessageType::BARO) {
                 // BARO, timestamp, Pressao (Pa), Temp (C)
-                len = snprintf(txBuffer, sizeof(txBuffer), "BARO,%lu,%.2f,%.2f\n",
+                len = snprintf(txBuffer, sizeof(txBuffer), "BARO,%lu,%d,%d\n",
                                packet.payload.barometer.timestamp_ms,
-                               packet.payload.barometer.pressure_pa,
-                               packet.payload.barometer.temperature_c);
+                               packet.payload.barometer.pressure_delta,
+                               packet.payload.barometer.temperature);
                                
             } else if (packet.type == MessageType::GPS) {
                 // GPS, timestamp, sats, Lat, Lon, Alt (msl), Ground Speed (m/s)
-                len = snprintf(txBuffer, sizeof(txBuffer), "GPS,%lu,%d,%.6f,%.6f,%.2f,%.2f\n",
+                len = snprintf(txBuffer, sizeof(txBuffer), "GPS,%lu,%d,%lu,%lu,%d,%d\n",
                                packet.payload.gps.timestamp_ms,
                                packet.payload.gps.satellites,
                                packet.payload.gps.latitude,

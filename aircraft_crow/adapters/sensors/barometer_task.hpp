@@ -29,8 +29,8 @@ private:
     // Coeficientes de calibração internos do MS5611 (C1 a C6)
     uint16_t _calibCoeffs[6];
 
-    // Estado do Filtro Exponential Moving Average (EMA)
-    float _emaPressure;
+    float _emaPressure; // Estado do Filtro Exponential Moving Average (EMA)
+    float _basePressure; // Pressão de referência no solo para calcular o delta
     bool _emaInitialized;
 
     static void taskEntry(void* pvParameters);

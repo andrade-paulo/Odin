@@ -3,5 +3,5 @@
 
 class IPilotReceiver {
 public:
-    virtual ~IReceiver() = default;
+    virtual ~IPilotReceiver() = default;
 };
