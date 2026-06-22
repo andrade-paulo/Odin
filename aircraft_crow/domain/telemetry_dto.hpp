@@ -7,31 +7,36 @@ struct ImuPayload {
     uint32_t timestamp_ms;
 
     // Acceleration using m/s^2
-    float linear_acceleration_x;
-    float linear_acceleration_y;
-    float linear_acceleration_z;
+    int16_t linear_acceleration_x;
+    int16_t linear_acceleration_y;
+    int16_t linear_acceleration_z;
     
     // Rotation speed using °/s
-    float rotation_speed_x;
-    float rotation_speed_y;
-    float rotation_speed_z;
+    int16_t rotation_speed_x;
+    int16_t rotation_speed_y;
+    int16_t rotation_speed_z;
+
+    // Magnetometro
+    int16_t magnetic_field_x;
+    int16_t magnetic_field_y;
+    int16_t magnetic_field_z;
 };
 
 struct BarometerPayload {
     uint32_t timestamp_ms;
 
-    float pressure_pa;
-    float temperature_c;
+    int16_t pressure_delta;
+    int16_t temperature;
 };
 
 struct GpsPayload {
     uint32_t timestamp_ms;
 
     int satellites;
-    float latitude;
-    float longitude;
-    float altitude_msl;
-    float ground_speed_ms;
+    int32_t latitude;
+    int32_t longitude;
+    uint16_t altitude_msl;
+    uint16_t ground_speed_ms;
 };
 
 

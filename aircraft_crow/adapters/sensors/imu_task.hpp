@@ -9,9 +9,9 @@
 #include "i2c_bus_manager.hpp"
 
 // A Port que esta Task implementa (Driven Adapter)
-#include "ports/port_imu.hpp"
+#include "ports/port_sensor.hpp"
 
-class ImuTask : public IImuSensor {
+class ImuTask : public ISensor {
 public:
     ImuTask(OrchestratorTask* orchestrator, I2cBusManager* i2cBus);
     ~ImuTask() = default;

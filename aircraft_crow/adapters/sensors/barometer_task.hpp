@@ -5,9 +5,9 @@
 
 #include "orchestrator_task.hpp"
 #include "i2c_bus_manager.hpp"
-#include "ports/port_barometer.hpp"
+#include "ports/port_sensor.hpp"
 
-class BarometerTask : public IBarometerSensor {
+class BarometerTask : public ISensor {
 public:
     BarometerTask(OrchestratorTask* orchestrator, I2cBusManager* i2cBus);
     ~BarometerTask() = default;
@@ -19,6 +19,7 @@ public:
 
     // Contratos da Port
     bool isHealthy() override;
+    void calibrate() override;
 
 private:
     OrchestratorTask* _orchestrator;
@@ -28,8 +29,8 @@ private:
     // Coeficientes de calibração internos do MS5611 (C1 a C6)
     uint16_t _calibCoeffs[6];
 
-    // Estado do Filtro Exponential Moving Average (EMA)
-    float _emaPressure;
+    float _emaPressure; // Estado do Filtro Exponential Moving Average (EMA)
+    float _basePressure; // Pressão de referência no solo para calcular o delta
     bool _emaInitialized;
 
     static void taskEntry(void* pvParameters);

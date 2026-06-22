@@ -5,9 +5,9 @@
 #include "driver/uart.h"
 
 #include "orchestrator_task.hpp"
-#include "ports/port_gps.hpp"
+#include "ports/port_sensor.hpp"
 
-class GpsTask : public IGpsSensor {
+class GpsTask : public ISensor {
 public:
     GpsTask(OrchestratorTask* orchestrator, uart_port_t uartNum, int txPin, int rxPin);
     ~GpsTask(); // Este destrutor precisará invocar uart_driver_delete
@@ -19,6 +19,7 @@ public:
 
     // Contratos da Port
     bool isHealthy() override;
+    void calibrate() override;
 
 private:
     OrchestratorTask* _orchestrator;

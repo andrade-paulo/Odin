@@ -43,6 +43,8 @@ bool BarometerTask::isHealthy() {
     return _i2cBus->writeCommand(MS5611_ADDR, CMD_RESET);
 }
 
+void BarometerTask::calibrate() { return; }
+
 bool BarometerTask::readFactoryCalibration() {
     uint8_t buffer[2];
     // O MS5611 tem 6 coeficientes principais (C1 a C6) localizados em 0xA2 até 0xAC
@@ -103,26 +105,26 @@ void BarometerTask::runLoop() {
             int64_t OFF = ((int64_t)_calibCoeffs[1] << 16) + (((int64_t)_calibCoeffs[3] * dT) >> 7);
             int64_t SENS = ((int64_t)_calibCoeffs[0] << 15) + (((int64_t)_calibCoeffs[2] * dT) >> 8);
 
-            // Segunda ordem de compensação para temperaturas baixas (omitida por brevidade, 
-            // assumindo voo em ambiente > 20°C. Adicione se for voar no frio extremo).
-
             int32_t P = (((D1 * SENS) >> 21) - OFF) >> 15;
 
-            float currentPressure_Pa = (float)P; // Pressão em Pascal
-            float currentTemp_C = TEMP / 100.0f; // Temperatura em Celsius
+            float currentPressure_Pa = (float)P; // Declarado como float para o cálculo do EMA
 
             if (!_emaInitialized) {
+                _basePressure = currentPressure_Pa; // Salva pressão inicial no solo
                 _emaPressure = currentPressure_Pa;
                 _emaInitialized = true;
             } else {
                 _emaPressure = (EMA_ALPHA * currentPressure_Pa) + ((1.0f - EMA_ALPHA) * _emaPressure);
             }
-
+            
             TelemetryDTO dto = {};
             dto.type = MessageType::BARO;
             dto.payload.barometer.timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
-            dto.payload.barometer.pressure_pa = _emaPressure;
-            dto.payload.barometer.temperature_c = currentTemp_C;
+            
+            // Quantização Delta Pressão (Pa) -> int16_t
+            dto.payload.barometer.pressure_delta = (int16_t)(_emaPressure - _basePressure);
+            // Quantização da Temperatura: °C * 100 -> int16_t
+            dto.payload.barometer.temperature = (int16_t)TEMP;
 
             _orchestrator->pushEvent(dto);
         } else {

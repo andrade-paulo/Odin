@@ -59,6 +59,8 @@ bool GpsTask::isHealthy() {
     return uart_is_driver_installed(_uartNum);
 }
 
+void GpsTask::calibrate() { return; }
+
 bool GpsTask::configureAirborneModel() {
     ESP_LOGI(TAG, "Configurando U-blox para Airborne < 4G...");
     
@@ -132,43 +134,67 @@ void GpsTask::runLoop() {
                         // Como o módulo é M8N, ele usa o prefixo GNGGA (Múltiplas Constelações)
                         // ou GPGGA (Apenas GPS americano). Suportamos ambos.
                         if (strncmp(lineBuffer, "$GNGGA", 6) == 0 || strncmp(lineBuffer, "$GPGGA", 6) == 0) {
-                            
-                            char* saveptr;
-                            // Ignora o header ($GNGGA)
-                            strtok_r(lineBuffer, ",", &saveptr);
-                            
-                            // 1. Hora (ignoramos para performance, o ESP32 cuidará do timestamp)
-                            strtok_r(NULL, ",", &saveptr);
-                            
-                            // 2. Latitude Bruta e 3. N/S
-                            char* latStr = strtok_r(NULL, ",", &saveptr);
-                            
-                            // 4. Longitude Bruta e 5. E/W
-                            char* lonStr = strtok_r(NULL, ",", &saveptr);
-                            
-                            // 6. Qualidade do Fix (0 = Sem sinal, 1 = Fix GPS, 2 = DGPS)
-                            char* fixQuality = strtok_r(NULL, ",", &saveptr);
-                            
-                            // 7. Número de Satélites
-                            char* sats = strtok_r(NULL, ",", &saveptr);
-                            
-                            // 8. HDOP (Ignorado por enquanto)
-                            strtok_r(NULL, ",", &saveptr);
-                            
-                            // 9. Altitude e 10. Unidade (M)
-                            char* altStr = strtok_r(NULL, ",", &saveptr);
+                        char* saveptr;
+                        
+                        // Pula o Cabeçalho e o Horário (índices 0 e 1)
+                        strtok_r(lineBuffer, ",", &saveptr); 
+                        strtok_r(NULL, ",", &saveptr);
 
-                            if (fixQuality && atoi(fixQuality) > 0) {
-                                dto.payload.gps.timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
-                                dto.payload.gps.satellites = atoi(sats);
-                                dto.payload.gps.latitude = atof(latStr);   // Nota: O formato NMEA puro é DDMM.MMMMM
-                                dto.payload.gps.longitude = atof(lonStr);  // Você terá que converter para Graus Decimais no Core
-                                dto.payload.gps.altitude_msl = atof(altStr);
+                        // Extrai Latitude e Indicador N/S (índices 2 e 3)
+                        char* latStr = strtok_r(NULL, ",", &saveptr);
+                        char* nsStr  = strtok_r(NULL, ",", &saveptr);
+                        
+                        // Extrai Longitude e Indicador E/W (índices 4 e 5)
+                        char* lonStr = strtok_r(NULL, ",", &saveptr);
+                        char* ewStr  = strtok_r(NULL, ",", &saveptr);
 
-                                // Atira para o Orquestrador
-                                _orchestrator->pushEvent(dto);
-                            }
+                        // Pula Qualidade do Fix
+                        strtok_r(NULL, ",", &saveptr);
+                        
+                        // Extrai Satélites
+                        char* satStr = strtok_r(NULL, ",", &saveptr);
+                        if (satStr) dto.payload.gps.satellites = atoi(satStr);
+
+                        // Pula HDOP
+                        strtok_r(NULL, ",", &saveptr); 
+
+                        // Extrai Altitude MSL
+                        char* altStr = strtok_r(NULL, ",", &saveptr);
+
+                        // Conversão NMEA para graus
+                        if (latStr && nsStr && lonStr && ewStr && strlen(latStr) > 0 && strlen(lonStr) > 0) {
+                            
+                            // NMEA Lat: DDMM.MMMMM -> Graus = DD, Minutos = MM.MMMMM
+                            float lat_val = atof(latStr);
+                            int lat_deg = (int)(lat_val / 100);
+                            float lat_min = lat_val - (lat_deg * 100);
+                            float decimal_lat = lat_deg + (lat_min / 60.0f);
+                            if (nsStr[0] == 'S') decimal_lat = -decimal_lat; // Sul é negativo
+
+                            // NMEA Lon: DDDMM.MMMMM -> Graus = DDD, Minutos = MM.MMMMM
+                            float lon_val = atof(lonStr);
+                            int lon_deg = (int)(lon_val / 100);
+                            float lon_min = lon_val - (lon_deg * 100);
+                            float decimal_lon = lon_deg + (lon_min / 60.0f);
+                            if (ewStr[0] == 'W') decimal_lon = -decimal_lon; // Oeste é negativo
+
+                            // Multiplica por 10.000.000 e casta para int32_t (Preserva 1cm de precisão)
+                            dto.payload.gps.latitude = (int32_t)(decimal_lat * 10000000.0f);
+                            dto.payload.gps.longitude = (int32_t)(decimal_lon * 10000000.0f);
                         }
+
+                        if (altStr && strlen(altStr) > 0) {
+                            // Quantização da Altitude: Metros * 10 -> uint16_t
+                            dto.payload.gps.altitude_msl = (uint16_t)(atof(altStr) * 10.0f);
+                        }
+
+                        // Apenas despache para o Orchestrator se você tiver um Fix válido (satélites > 0)
+                        if (dto.payload.gps.satellites > 0) {
+                            dto.type = MessageType::GPS;
+                            dto.payload.gps.timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+                            _orchestrator->pushEvent(dto);
+                        }
+                    }
                         
                         // Parse da Velocidade de Solo (Ground Speed) vem na sentença RMC ou VTG
                         else if (strncmp(lineBuffer, "$GNRMC", 6) == 0 || strncmp(lineBuffer, "$GPRMC", 6) == 0) {
@@ -180,7 +206,7 @@ void GpsTask::runLoop() {
                             char* speedStr = strtok_r(NULL, ",", &saveptr);
                             if (speedStr) {
                                 // 1 Nó = 0.514444 m/s
-                                dto.payload.gps.ground_speed_ms = atof(speedStr) * 0.514444f;
+                                dto.payload.gps.ground_speed_ms = (uint16_t)(atof(speedStr) * 0.514444f * 10.0f);
                                 // Envia atualização com a velocidade
                                 _orchestrator->pushEvent(dto);
                             }
