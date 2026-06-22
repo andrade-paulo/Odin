@@ -37,7 +37,7 @@ bool LoRaTask::start() {
     return (res == pdPASS);
 }
 
-void LoRaTask::sendTelemetry(const TelemetryDTO& dto) {
+void LoRaTask::sendPacket(const TelemetryDTO& dto) {
     if (_txQueue != nullptr) {
         // Obs.: Se o LoRa estiver ocupado e a fila encher, o pacote actual é descartado para não travar o Orquestrador.
         if (xQueueSend(_txQueue, &dto, 0) != pdPASS) {
