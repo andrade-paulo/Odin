@@ -1,71 +1,93 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "driver/spi_master.h"
+#include "driver/gpio.h"
 
-// Includes da sua Arquitetura
-#include "telemetry_orchestrator.hpp"
-#include "orchestrator_task.hpp"
-#include "i2c_bus_manager.hpp"
-#include "imu_task.hpp"
-#include "barometer_task.hpp"
-#include "gps_task.hpp"
-// Include do seu sender HIL existente
-#include "consumer_uart_hil_task.hpp" 
-#include "driver/i2c.h"
+// Includes da Camada de Domínio e Comunicação
+#include "telemetry_dto.hpp"
+#include "lora_task.hpp"
 
+static const char* TAG = "TX_TEST";
 
-void scan_i2c_bus() {
-    ESP_LOGI("SCANNER", "Iniciando varredura I2C...");
-    int devices_found = 0;
-    for (uint8_t i = 1; i < 127; i++) {
-        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-        i2c_master_start(cmd);
-        i2c_master_write_byte(cmd, (i << 1) | I2C_MASTER_WRITE, true);
-        i2c_master_stop(cmd);
-        esp_err_t err = i2c_master_cmd_begin(I2C_NUM_0, cmd, pdMS_TO_TICKS(20));
-        i2c_cmd_link_delete(cmd);
-        
-        if (err == ESP_OK) {
-            ESP_LOGW("SCANNER", ">>> SENSOR ENCONTRADO NO ENDERECO: 0x%02X <<<", i);
-            devices_found++;
-        }
-    }
-    ESP_LOGI("SCANNER", "Varredura concluida. Total: %d dispositivos", devices_found);
-}
-
+// Defina a pinagem do seu Módulo LoRa no ESP32 Transmissor
+#define LORA_SCK_PIN  18
+#define LORA_MISO_PIN 19
+#define LORA_MOSI_PIN 23
+#define LORA_CS_PIN   5
+#define LORA_RST_PIN  14
+#define LORA_DIO0_PIN 26
 
 extern "C" void app_main(void) {
-    ESP_LOGI("MAIN", "Iniciando Sistema de Telemetria Odin...");
+    ESP_LOGI(TAG, "=== Iniciando Teste de Transmissao LoRa (RF Ping) ===");
 
-    auto* uartSender = new ConsumerUartHilTask(); 
+    // 1. Inicializar o Barramento SPI Global (VSPI)
+    spi_bus_config_t buscfg = {};
+    buscfg.miso_io_num = LORA_MISO_PIN;
+    buscfg.mosi_io_num = LORA_MOSI_PIN;
+    buscfg.sclk_io_num = LORA_SCK_PIN;
+    buscfg.quadwp_io_num = -1;
+    buscfg.quadhd_io_num = -1;
+    buscfg.max_transfer_sz = 4096;
 
-    auto* core = new TelemetryOrchestrator(uartSender, nullptr, nullptr, nullptr);
-    auto* orchestratorTask = new OrchestratorTask(core);
-
-    auto* i2cBus = new I2cBusManager(I2C_NUM_0, 21, 22, 400000); // 400kHz
-    if (!i2cBus->init()) {
-        ESP_LOGE("MAIN", "Falha catastrofica no I2C. Abortando sensores.");
-        // Estado de erro
+    // Usando SPI_DMA_CH_AUTO para compatibilidade com ESP-IDF moderno
+    esp_err_t ret = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Falha critica ao inicializar o barramento SPI. Erro: %d", ret);
+        return;
     }
 
-    //scan_i2c_bus();
-    //while(1) { vTaskDelay(1000); }
-
-    auto* imu = new ImuTask(orchestratorTask, i2cBus);
-    auto* baro = new BarometerTask(orchestratorTask, i2cBus);
-    auto* gps = new GpsTask(orchestratorTask, UART_NUM_2, 17, 16);
-
-    uartSender->start();
-    orchestratorTask->start();
+    // 2. Instanciar e Iniciar a Task do LoRa
+    // Parâmetros: SPI Host, CS, RST, DIO0, System ID, Component ID
+    LoRaTask loraTask(SPI2_HOST, LORA_CS_PIN, LORA_RST_PIN, LORA_DIO0_PIN, 1, 1);
     
-    vTaskDelay(pdMS_TO_TICKS(100)); 
+    if (!loraTask.start()) {
+        ESP_LOGE(TAG, "Falha ao alocar a task LoRa no FreeRTOS.");
+        return;
+    }
 
-    imu->start();
-    baro->start();
-    gps->start();
+    ESP_LOGI(TAG, "LoRaTask iniciada com sucesso. Iniciando injecao de pacotes...");
 
-    ESP_LOGI("MAIN", "Kernel operacional. Sensores ativos.");
-    
-    // A app_main pode encerrar ou entrar em loop ocioso
-    vTaskDelete(NULL); 
+    // 3. Injeção de Dados Simulados (Mock do Orquestrador)
+    while (true) {
+        // --- Pacote Completo (Sem compressão) ---
+        TelemetryDTO dto_full = {};
+        dto_full.type = MessageType::IMU;
+        dto_full.payload.imu.timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        dto_full.payload.imu.linear_acceleration_x = 981;
+        dto_full.payload.imu.linear_acceleration_y = 120;
+        dto_full.payload.imu.linear_acceleration_z = -981;
+        dto_full.payload.imu.rotation_speed_x = 1500;
+        dto_full.payload.imu.rotation_speed_y = -100;
+        dto_full.payload.imu.rotation_speed_z = 50;
+        dto_full.payload.imu.magnetic_field_x = 300;
+        dto_full.payload.imu.magnetic_field_y = -300;
+        dto_full.payload.imu.magnetic_field_z = 100;
+
+        ESP_LOGI(TAG, "Despachando DTO Completo (Espera-se ~33 bytes no ar)...");
+        loraTask.sendTelemetry(dto_full);
+
+        // Aguarda 2 segundos para não colapsar o rádio e facilitar a leitura no receptor
+        vTaskDelay(pdMS_TO_TICKS(2000)); 
+
+        // --- Pacote Truncado (Muitos zeros) ---
+        TelemetryDTO dto_zero = {};
+        dto_zero.type = MessageType::IMU;
+        dto_zero.payload.imu.timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        // Restante zerado para forçar o Zero-Byte Truncation do MAVLink v2
+        dto_zero.payload.imu.linear_acceleration_x = 0; 
+        dto_zero.payload.imu.linear_acceleration_y = 0;
+        dto_zero.payload.imu.linear_acceleration_z = 0;
+        dto_zero.payload.imu.rotation_speed_x = 0;     
+        dto_zero.payload.imu.rotation_speed_y = 0;
+        dto_zero.payload.imu.rotation_speed_z = 0;
+        dto_zero.payload.imu.magnetic_field_x = 0;
+        dto_zero.payload.imu.magnetic_field_y = 0;
+        dto_zero.payload.imu.magnetic_field_z = 0;
+
+        ESP_LOGI(TAG, "Despachando DTO Truncado (Espera-se ~14 bytes no ar)...");
+        loraTask.sendTelemetry(dto_zero);
+
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
 }
