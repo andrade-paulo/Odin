@@ -201,27 +201,69 @@ Visando organizar o sistema de forma a simplificar o processo de adição e/ou m
 
 Nesta arquitetura, o \textit{domain} será uma camada de lógica de negócios, agnóstica a técnologias. Ou seja, será uma camada para implementação em C++ puro que não conhecerá quais serão os componentes de hardware. Para que o \textit{domain} se comunique com as tecnologias externas, as \textit{ports} servirão de camada de abstração, fornecendo interfaces com os contratos que o \textit{domain} sabe usar. Por fim, os \textit{adapters} serão os componentes externos à camada central e implementarão as interfaces das \textit{ports} seguindo as especificações de cada hardware, sejam estes sensores, comunicadores ou o próprio microcontrolador. A distribuição das camadas está descrita de forma visual no diagrama da Imagem \ref{fig:diagrama_hexagonal}.
 
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=1.0\textwidth]{images/aircraft_crow_architecture.png}
+    \caption{Diagrama de Arquitetura do \textit{Aircraft Crow}} \label{fig:diagrama_hexagonal}
+\end{figure}
+
 Com isso, a arquitetura servirá não apenas de guia, mas também como rigor de projeto que deve ser respeitado para manter a manutenabilidade e escalabilidade do sistema.
 
 \subsection{Camada \textit{Domain}}
-Lógica de negócios
+A camada de domínio atua como o núcleo lógico do sistema embarcado, isolando as regras de negócio das especificidades de hardware e do sistema operacional. Por isso, a implementação do domínio é feita em C++ puro, isenta de acoplamentos com o framework ESP-IDF ou com as bibliotecas do FreeRTOS. A comunicação com os periféricos é resolvida por meio da inversão de dependência [Clean Architecture, Robert C. Martin], onde contratos de interface (\textit{ports}) são definidos internamente, delegando a responsabilidade de execução do baixo nível aos adaptadores.
+
+No núcleo do domínio implementou-se os fluxos principais do sistema, o gerenciamento da máquina de estado e as estruturas de tráfego dos dados. Os componentes system\_state.hpp e telemetry\_dto.hpp são preenchidos com \textit{structs} que servem de contrato para que todo o firmware se comunique consistentemente. Enquanto o telemetry\_orchestrator.hpp apresenta uma classe responsável por gerenciar o fluxo de dados.
+
+Para cumprir a função de gerenciar a máquina de estado, o orquestrador deve seguir estritamente o diagrama de transição de estado da Imagem \ref{fig:diagrama_estados}. Por isso, todo comando capturado na porta \textit{port\_pilot\_receiver} passa por uma estrutura condicional que garante consistência do sistema. Observe que, por exemplo, ao entrar no estado de erro, o sistema deve ser reiniciado, visto que este é um estado de "morte" e exige inspeção no hardware.
+
+\begin{figure}[ht]
+    \centering
+    \caption{Diagrama de Transição de Estados.} 
+    \label{fig:diagrama_estados}
+    \includegraphics[width=1\textwidth]{images/diagrama_estados.png}
+    \footnotesize Fonte: Autoria própria, 2026.
+\end{figure}
+
+Já para a gestão de tráfego dos dados, o orquestrador dita o fluxo dos \textit{Data Transfer Objects (DTOs)}, onde os dados irão dos sensores para camada de telemetria de forma padronizada. Aqui surge o desafio de criar uma estrutura de dados que recebe informações com tipos e tamanhos diferentes, visto que, por exemplo, o dado de giroscópio difere bastante em tamanho e quantidade de valores do output produzido pelo GPS. Como solução, utilizou-se de um \textit{Union} entre structs específicos para cada dado esperado pelo domínio que servirá de pacote genérico, conforme o trecho na Figura \ref{fig:DTOs_code}.
+
+\begin{figure}[ht]
+    \centering
+    \caption{Definição dos DTOs.}
+    \label{fig:DTOs_code}
+    \includegraphics[width=0.7\textwidth]{images/dto_code.png}\\
+    \footnotesize Fonte: Autoria própria, 2026.
+\end{figure}
+
+Por fim, a camada de domínio também comporta as portas de abstração dos recursos externos. Essas portas, definidas como classes do tipo interface, são utilizadas pelo orquestrador e implementadas na camada de adaptadores. Dessa forma, se algum componente externo mudar, nada muda para o domínio. Neste sistema temos as portas \textit{IPilotReceiver}, \textit{ISensor}, \textit{ISystemIndicator} e \textit{ITelemetrySender}.
 
 \subsection{Comunicação com piloto}
-Sistema PWM, acesso do rádio controle e buzzer
+A comunicação com o operador está abstraída nas portas \textit{IPilotReceiver} e \textit{ISystemIndicator}. Portanto, o próximo passo se resume à implementação do hardware que vai executar essa comunicação. Para o comando PWM do rádio-receptor, o \textit{pwm\_task} se tornou o componente que implementa a leitura dos pulsos.
+
+Como o ESP32 não possui captura de input em hardware nativamente, adotou-se o método para registro de tempo \textit{esp\_timer\_get\_time()} via interrupção de GPIO. Esta estratégia tem uma margem de erro na casa de alguns microssegundos, portanto, para garantir que o sinal não flutue entre os dois estados devido ao ruído de RF no receptor, adotou-se uma zona morta explícita. Pulsos acima de $1600µs$ ativam a gravação, pulsos abaixo de $1400µs$ param a gravação, e qualquer valor no meio é ignorado, mantendo o último estado.
+
+No rádio-controle do piloto, o comando foi ajustado para ocilar entre $1000µs$ e $2000µs$ em seu mínimo e máximo, respectivamente. A chave associado foi um comando na parte superior, normalmente acessível com o dedo indicador da mão esquerda, conforme Imagem \ref{fig:radio-controle}.
+
+A implementação do buzzer é simples e orientada a eventos. Para cada estado o buzzer dispara uma sequencia de bipes no momento da transição, sendo sendo 4 bipes longos indicativos de erro na inicialização, 3 bipes curtos indicativo de entrada no estado de calibração, 1 bipe longo indicativo de estado de \textit{idle}, e 2 bipes curtos indicativo de inicialização da telemetria. A task do buzzer passará 99\% do seu tempo de vida no estado \textit{Blocked} aguardando um comando na fila. Quando a instrução chegar, a task acorda, executa o som e volta a dormir.
 
 \subsection{Leitura dos sensores}
+Para os sensores, as implementações passam a ser bem mais complexas com baixo nível de abstração. 
 Camada de adapter e ports para os sensores
 
 \subsection{Tratamento de dados na ponta}
-Filtros, edge computing, redução de carga na rede
+Filtros, edge computing, quantização para redução de carga na rede
 
-\subsection{Transmissão e arquivamento das leituras}
-Transmissão via LoRa e escrita no cartão SD
+\subsection{Transmissão das leituras}
+Transmissão via LoRa
 
 \subsection{Detalhes técnicos}
 Detalhes de implementação que merecem destaque
 
 
 \section{Protótipo}
-Processo de fabricação, teste e estimativa de consumo elétrico
+Processo de fabricação, metodologias de teste e estimativa de consumo elétrico
+\subsection{Fabricação dos protótipos}
+
+\subsection{Meotodologias de testes \textit{Hardware-in-the-loop}}
+
+\subsection{Bancada para validação das características elétricas}
 
