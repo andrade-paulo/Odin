@@ -243,27 +243,102 @@ Como o ESP32 não possui captura de input em hardware nativamente, adotou-se o m
 
 No rádio-controle do piloto, o comando foi ajustado para ocilar entre $1000µs$ e $2000µs$ em seu mínimo e máximo, respectivamente. A chave associado foi um comando na parte superior, normalmente acessível com o dedo indicador da mão esquerda, conforme Imagem \ref{fig:radio-controle}.
 
-A implementação do buzzer é simples e orientada a eventos. Para cada estado o buzzer dispara uma sequencia de bipes no momento da transição, sendo sendo 4 bipes longos indicativos de erro na inicialização, 3 bipes curtos indicativo de entrada no estado de calibração, 1 bipe longo indicativo de estado de \textit{idle}, e 2 bipes curtos indicativo de inicialização da telemetria. A task do buzzer passará 99\% do seu tempo de vida no estado \textit{Blocked} aguardando um comando na fila. Quando a instrução chegar, a task acorda, executa o som e volta a dormir.
 
 \subsection{Leitura dos sensores}
-Para os sensores, as implementações passam a ser bem mais complexas com baixo nível de abstração. 
-Camada de adapter e ports para os sensores
+Para os sensores, as implementações passam a ser bem mais complexas com baixo nível de abstração. Cada sensor usa um algoritmo serial para enviar seus dados pelos fios conectados ao GPIO do ESP32. Neste caso temos o MS5611 e ICM-20948 usando o protocolo \textit{Inter-Integrated Circuit} (I2C) \cite{MS5611_datasheet} \cite{ICM-20948_datasheet}, e o NEO-M8N usando o \textit{Universal Asynchronous Receiver-Transmitter} (UART) \cite{NEO-M8N}.
 
-\subsection{Tratamento de dados na ponta}
-Filtros, edge computing, quantização para redução de carga na rede
+O protocolo I2C permite que os sensores compartilhem o barramento de comunicação com o microcontrolador, o que é vantajoso em termos de redução de complexidade do hardware, mas requer um gerenciamento cuidadoso no firmware \cite{serial_protocols}. Para que o microcontrolador saiba quem é o dono do dado, cada sensor precisa fornecer um ID, que costuma ter valores padrões controlados por resistores de \textit{pull-up} ou \textit{pull-down} \cite{ICM-20948_datasheet}. Trazendo um melhor gerenciamento desse barramento compartilhado, cirou-se uma camada de abstração de hardware com a classe \textit{I2cBusManager}.
+
+\subsubsection{ICM-20948}
+A leitura da Unidade de Medição Inercial (IMU), implementada pelo módulo ICM-20948, opera através do protocolo I2C, comunicando-se primariamente pelo endereço 0x68 e configurando um bypass de barramento, via registrador 0x0F, para permitir o acesso direto ao magnetômetro auxiliar AK09916 no endereço 0x0C. 
+
+A parametrização inicial manipula registradores de seleção de banco de memória para definir os limites operacionais estritos exigidos pelo domínio do problema: o giroscópio é ajustado para atuar no fundo de escala de ±250 graus por segundo (dps) e o acelerômetro em ±4g, com ambos ativando o filtro digital passa-baixa (DLPF) embarcado em hardware, enquanto o magnetômetro é alocado no modo de leitura contínua a 100 Hz.
+
+A extração das informações obedece a uma rotina de burst read, requisitando 12 bytes sequenciais do registrador de dados do acelerômetro e 7 bytes do magnetômetro a cada ciclo do escalonador. Como tratamento de dados na ponta, o firmware aplica a subtração de um bias estático, computado em uma fase prévia de calibração de 100 amostras — onde o eixo Z já compensa intrinsecamente a aceleração da gravidade (1G) —, e submete os resultados em ponto flutuante a uma quantização por multiplicação decimal para o tipo numérico inteiro de 16 bits, preservando as escalas exigidas e mitigando o custo de empacotamento na camada de transporte.
+
+\subsubsection{MS5611}
+O barômetro MS5611, empregado para a derivação da altitude, compartilha o barramento I2C operando no endereço 0x77. Sua rotina de configuração consiste em manipulação de registradores de limite, apoiando-se no envio de comandos de reset e na leitura sequencial de seis coeficientes de calibração de fábrica gravados permanentemente na memória PROM do sensor. 
+
+Para as aquisições, o microcontrolador emite comandos intercalados de conversão analógico-digital para pressão (D1) e temperatura (D2) setados na resolução máxima com taxa de sobreamostragem de 4096, operação que impõe um tempo de espera obrigatório de aproximadamente 10 ms de restrição física do ADC interno antes que os 3 bytes de dados fiquem disponíveis para leitura. 
+
+O tratamento dessas medições requer a aplicação de um equacionamento polinomial de compensação de temperatura de segunda ordem, alimentado pelos coeficientes da PROM, para derivar o valor real de pressão atmosférica em Pascal. Posteriormente, a pressão resultante é submetida a um filtro digital de média móvel exponencial (EMA) com constante de suavização estabelecida em $0.2$, focado na supressão de ruídos transitórios causados pelo vento em voo, permitindo o isolamento do delta de pressão em relação à medição basal capturada no solo.
+
+\subsubsection{NEO-M8N}
+Por fim, a extração dos parâmetros cinemáticos via receptor GNSS NEO-M8N é regida pelo UART em uma taxa padrão de 9600 bps. Em vez de utilizar registradores puros, a configuração demanda a escrita de um pacote estruturado em protocolo UBX (UBX-CFG-NAV5) visando reparametrizar o modelo dinâmico interno do equipamento para a classificação "Airborne < 4G", que afrouxa os filtros de correlação do satélite para acomodar acelerações repentinas típicas de veículos não tripulados. 
+
+Respeitando o limite de atualização do sensor (situado entre 5 Hz e 10 Hz), a rotina de leitura avalia de forma contínua o buffer de RX, montando linhas de caracteres até a detecção de quebra de linha e validando imediatamente sua integridade por meio de um cálculo de checksum, implementado como uma operação XOR sobre o conteúdo útil da mensagem. 
+
+Quando as sentenças NMEA de interesse (GNGGA e GPRMC) são validadas, seus tokens separados por vírgula passam por processos de adaptação: as coordenadas sexagesimais (graus e minutos) são planificadas para o formato decimal e inflacionadas por um fator de 107 para garantir resolução centimétrica em variáveis de 32 bits, a velocidade de solo é equacionada de nós para metros por segundo, e a carga útil inteira é precocemente descartada caso o módulo sinalize a perda de sincronismo.
+
+\subsection{Quantização}
+A transmissão de dados analíticos sobre canais de radiofrequência sub-GHz, operando sob a modulação de espalhamento espectral selecionada para este projeto, impõe severas restrições à largura de banda. Para satisfazer às demandas de baixa latência e contínua taxa de atualização sem comprometer a integridade do enlace, exige-se uma minimização do \textit{payload} dos pacotes de telemetria. 
+
+Para dados contínuos, as leituras brutas provenientes dos sensores são rotineiramente mantidas no tipo primitivo de ponto flutuante, que apesar de prover uma vasta faixa dinâmica e alta resolução fracionária, a execução de operações matemáticas sobre variáveis em ponto flutuante acarreta um maior custo computacional em relação à aritmética de inteiros, somando-se ao fato de que a alocação de 32 bits por variável demonstra-se ineficiente em cenários com restrições de hardware e rede.
+
+Diante desta problemática, aplicou-se a técnica de quantização nos componentes de telemetria \cite{quantizacao}. O método consiste na conversão das variáveis de ponto flutuante em tipos inteiros de tamanho fixo (int16\_t, int32\_t e uint16\_t). Para evitar a perda das grandezas decimais, promove-se o escalonamento matemático, multiplicando os valores por potências de base 10.
+
+No subsistema inercial e barométrico, a quantização reduz substancialmente o consumo do barramento. As acelerações lineares e a atitude, por exemplo, são comprimidas para 16 bits. Para cumprir os requisitos RNF.03 e RNF.04, assumiu-se um fator multiplicativo de 1000 sobre os dados brutos de aceleração e velocidade angular, estabelecendo uma precisão efetiva de $0,001m/s2$ e $0,001°/s$ restrita a um teto operacional de $±32,767m/s2$ e $±32,767°/s$. 
+
+Para os dados geodésicos extraídos do receptor GNSS, a quantização atua, primordialmente, como um mecanismo de supressão do erro de aproximação estrutural (floating-point drift). A codificação de latitude e longitude em variáveis float simples (32 bits) culmina na perda de algarismos significativos, resultando em um erro posicional superior a 1 metro. Ao alocar as coordenadas como inteiros com sinal de 32 bits (\textit{int32\_t}), multiplicados pelo fator de 107, assegura-se uma precisão referencial na ordem de centímetros ($10^{-7}$ graus). Adicionalmente, vetores limitados ao domínio estritamente positivo, como a altitude (MSL) e a velocidade de solo georreferenciada, foram adequados em inteiros de 16 bits sem sinal (\textit{uint16\_t}), garantindo que o arranjo de bits remanescente dobre o raio da amplitude superior da variável, possibilitando o registro de até $6553,5m$ de teto altimétrico.
+
+\begin{table}[h]
+\centering
+\caption{Comparativo de Tamanho, Precisão e Faixa Dinâmica entre Ponto Flutuante e Quantização}
+\label{tab:comparativo_quantizacao}
+  \begin{tabular}{llccl}
+    \hline
+    \textbf{Variável de Voo} & \textbf{Formato Primitivo} & \textbf{Tamanho} & \textbf{Precisão} & \textbf{Range Máximo} \\ \hline
+    Aceleração Linear & Não-Quantizado & 4 bytes & $\sim 7$ dígitos dec. & $\pm 3.4 \times 10^{38} \, \text{m/s}^2$ \\
+    & Quantizado & 2 bytes & $0,01 \, \text{m/s}^2$ & $\pm 327,67 \, \text{m/s}^2$ \\ \hline
+    Velocidade Angular & Não-Quantizado & 4 bytes & $\sim 7$ dígitos dec. & $\pm 3.4 \times 10^{38} \, ^\circ\text{/s}$ \\
+    & Quantizado & 2 bytes & $0,1 \, ^\circ\text{/s}$ & $\pm 3276,7 \, ^\circ\text{/s}$ \\ \hline
+    Coordenadas GPS & Não-Quantizado & 4 bytes & $\sim 1,1 \, \text{m}$ & $\pm 90^\circ$ / $\pm 180^\circ$ \\
+    & Quantizado & 4 bytes & $10^{-7}$ ($^\circ$) & $\pm 214,7^\circ$ \\ \hline
+    Altitude (MSL) & Não-Quantizado & 4 bytes & $\sim 7$ dígitos dec. & $\pm 3.4 \times 10^{38} \, \text{m}$ \\
+    & Quantizado & 2 bytes & $0,1 \, \text{m}$ & $0$ a $6553,5 \, \text{m}$ \\ \hline
+  \end{tabular}
+\end{table}
 
 \subsection{Transmissão das leituras}
-Transmissão via LoRa
+A transmissão dos pacotes de telemetria é gerenciada por uma rotina dedicada, estruturada sob a classe LoRaTask, que atua como implementadora da interface abstrata ITelemetrySender. Para garantir que as rotinas críticas de amostragem dos sensores e o processamento de domínio não sejam bloqueados pela latência do rádio, a arquitetura emprega uma fila de mensagens assíncrona gerida pelo sistema operacional de tempo real (FreeRTOS). Esta tarefa opera fixada no Core 1 do microcontrolador e permanece em estado ocioso até a recepção de um objeto de transferência de dados (TelemetryDTO), momento em que aciona a serialização do pacote para a estruturação de \textit{frames} no protocolo MAVLink e delega o encargo físico à camada inferior de abstração.
 
-\subsection{Detalhes técnicos}
-Detalhes de implementação que merecem destaque
+A comunicação de baixo nível com o transceptor SX1276 motivou a construção de um \textit{driver} proprietário, cuja necessidade reside no isolamento da lógica do barramento SPI (operante a 8 MHz) e no controle rigoroso dos tempos de resposta do \textit{hardware}. A inicialização do rádio demanda a escrita sequencial em registradores específicos de configuração: o registrador de modo (REG\_OP\_MODE) é ajustado para habilitar o espectro de longo alcance (LoRa), a tríade de registradores de frequência (REG\_FRF\_MSB) é submetida ao valor hexadecimal 0xE4C000 para cravar a sintonia na faixa não licenciada de 915 MHz, e o controle de amplificação (REG\_PA\_CONFIG) é setado para 0x8F, roteando a saída para o estágio PA\_BOOST com o intuito de atingir a potência máxima permitida de transmissão.
 
+Durante o ciclo ativo de envio, o \textit{driver} comanda o transceptor para o modo de espera (\textit{standby}), reseta os ponteiros de base do \textit{buffer} interno (REG\_FIFO\_ADDR\_PTR e REG\_FIFO\_TX\_BASE\_ADDR) e transfere a carga útil serializada em formato de rajada (\textit{burst}) para o módulo. Visando preservar ciclos de processamento e evitar laços de espera ativa (\textit{polling}), o sistema configura o registrador REG\_DIO\_MAPPING\_1 para mapear a conclusão do envio (\textit{TxDone}) diretamente no pino de interrupção física DIO0. Ao finalizar a modulação no ar, o rádio dispara essa interrupção de \textit{hardware}, que é prontamente capturada por uma rotina alocada em memória de acesso rápido (IRAM). Essa rotina, por sua vez, concede um semáforo binário que desperta a tarefa de transmissão, informando ao sistema que o canal se encontra livre para o próximo ciclo analítico.
 
 \section{Protótipo}
-Processo de fabricação, metodologias de teste e estimativa de consumo elétrico
+Ao decorrer das implementações, dois protótipos foram construídos. O primeiro, foi um protótipo conceitual com componentes eletrônicos disponíveis em laboratório para realizar uma prova de conceito (PoC). Este contava com os componentes: ESP32, SX1276, buzzer, interface PWM, leitor de cartão SD para \textit{log}, e um MPU6050 como único módulo de sensoriamento, entregando apenas aceleração linear e velocidade angular. O segundo protótipo foi o hardware refinado com a PCB e componentes conforme definidos no trabalho.
+
 \subsection{Fabricação dos protótipos}
+O protótipo de PoC foi construído em uma placa perfurada com trilhas em fios soldados entre os pinos, conforme Imagem \ref{fig:prototipo_poc}. Nesta fase do projeto, o sistema transmitia os dados a um middleware mínimo que apenas informava a chegada dos pacotes. 
+
+Já o protótipo refinado teve um processo de construção cuidadoso e com resultado mais estável em relação ao anterior. Para a PCB utilizou-se uma placa de fenolite cobreada corroída com percloreto de ferro através do método artesanal de fabricação de PCBs \cite{newton_braga}. Na Imagem \ref{fig:fabricacao_pcb} estão os passos para a construção da placa.
+
+\begin{figure}[ht]
+    \centering
+    \caption{Passos de fabricação da PCB}
+    \label{fig:fabricacao_pcb}
+    \includegraphics[width=1\textwidth]{images/fabricacao_pcb.png}\\
+    \footnotesize Fonte: Autoria própria, 2026.
+\end{figure}
+
+A construção do protótipo marcou o fim do processo de fabricação do hardware embarcado, viabilizando a fase de testes em bancada para validação do sistema embarcado completo.
 
 \subsection{Meotodologias de testes \textit{Hardware-in-the-loop}}
+Enquanto os protótipos estavam sendo construídos e os componentes eletrônicos estavam em caminho de entrega, realizou-se testes com técnicas baseadas em Hardware-in-the-loop (HIL), onde um componente de hardware externo simula o comportamento do ambiente que o sistema irá interpretar \cite{hardware-in-the-loop}. O principal objetivo foi de validar o comportamento do sistema antes do acesso aos componentes.
+
+A viabilidade desta metodologia foi assegurada pelo emprego da arquitetura hexagonal no firmware, que permite a injeção de dependências e a substituição das portas lógicas de hardware por adaptadores emulados (\textit{mocks}). Para a comunicação com o ambiente externo, implementou-se adaptadores de produção (ProducerUartHilTask) e consumo (ConsumerUartHilTask) no microcontrolador, projetados para trafegar dados estruturados através da interface serial (USB UART). No ambiente de simulação, um computador \textit{host}, scripts desenvolvidos em Python assumiram os papéis de emuladores: o data\_injector.py atua como gerador estocástico de perfis de voo, injetando pacotes no formato CSV, enquanto o data\_consumer.py atua como plataforma de aquisição e plotagem gráfica das respostas do sistema.
+
+A execução dos ensaios HIL ocorreu sob duas variações de configuração topológica para isolar diferentes camadas do sistema. Na primeira rotina de testes, configurou-se o microcontrolador para operar com ambos os adaptadores simulados (produtor e consumidor). O computador injetava as grandezas cinemáticas e os comandos de transição de estado, que eram decodificados pela camada de adaptador e encapsulados como Objetos de Transferência de Dados (DTOs) para a camada de domínio. Após o processamento assíncrono pelo orquestrador, os dados eram retransmitidos ao computador pela porta de consumo. Este cenário isolou o core da aplicação, validando estritamente a consistência da máquina de estados finita e a integridade do fluxo lógico interno da arquitetura hexagonal.
+
+Na segunda variação, a simulação foi restrita aos sensores. O adaptador de produção continuou a injetar os perfis de voo sintetizados no domínio, contudo, a saída de dados foi redirecionada para a \textit{LoRaTask}, rotina de transmissão real em radiofrequência. Para capturar esses dados, configurou-se uma estação receptora em solo conectada ao computador host, onde o script data\_consumer.py passou a atuar como monitor serial exclusivo desta segunda placa. Essa abordagem avaliou a interoperabilidade entre o domínio de software e a camada física de comunicação. O teste garantiu a validação da serialização dos pacotes pelo protocolo MAVLink e atestou a estabilidade temporal do driver SPI na interface com o transceptor LoRa sob condições de carga contínua, homologando o fluxo de transmissão de ponta a ponta.
 
 \subsection{Bancada para validação das características elétricas}
 
+\begin{figure}[ht]
+    \centering
+    \caption{Validação das Tensões em Cada Trilha da PCB}
+    \label{fig:tensao_pcb}
+    \includegraphics[width=1\textwidth]{images/tensao_pcb.png}\\
+    \footnotesize Fonte: Autoria própria, 2026.
+\end{figure}
