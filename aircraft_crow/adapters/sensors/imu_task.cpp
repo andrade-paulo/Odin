@@ -88,16 +88,28 @@ void ImuTask::runLoop() {
         vTaskDelete(NULL); 
     }
 
-    ESP_LOGI(TAG, "ICM-20948 pronto. Iniciando telemetria a 100Hz.");
+    ESP_LOGI(TAG, "ICM-20948 pronto. Iniciando telemetria a 100Hz com Down-sampling para 10Hz.");
 
     TickType_t lastWakeTime = xTaskGetTickCount();
-    // Frequência de 100Hz = 10ms
-    const TickType_t frequency = pdMS_TO_TICKS(10); 
+    const TickType_t frequency = pdMS_TO_TICKS(10); // Loop a 100Hz
 
     uint8_t buffer[12];
 
+
+    float ema_accel_x = 0, ema_accel_y = 0, ema_accel_z = 0;
+    float ema_gyro_x = 0, ema_gyro_y = 0, ema_gyro_z = 0;
+    float ema_mag_x = 0, ema_mag_y = 0, ema_mag_z = 0;
+    
+    bool ema_initialized = false;
+    uint8_t sample_counter = 0;
+    
+    // Constante Alpha do filtro. 
+    // Valores próximos a 0 = mais suave (maior atraso). Valores próximos a 1 = mais rápido (mais ruído).
+    const float ALPHA = 0.15f; 
+    
+
     while (true) {
-        // Trava o loop para rodar com precisão cirúrgica a cada 10ms
+        // Trava o loop para rodar a cada 10ms
         vTaskDelayUntil(&lastWakeTime, frequency);
 
         if (_isCalibrating.load()) {
@@ -119,17 +131,21 @@ void ImuTask::runLoop() {
             
             _accelBiasX = (float)sumAx / 100.0f;
             _accelBiasY = (float)sumAy / 100.0f;
-            _accelBiasZ = ((float)sumAz / 100.0f) - 8192.0f; // Subtrai 1G (assumindo calibração com z para cima)
+            _accelBiasZ = ((float)sumAz / 100.0f) - 8192.0f; 
             _gyroBiasX = (float)sumGx / 100.0f;
             _gyroBiasY = (float)sumGy / 100.0f;
             _gyroBiasZ = (float)sumGz / 100.0f;
 
             _isCalibrating.store(false);
+            
+            // Força o filtro a recomeçar com os novos valores para não causar um sobressalto matemático
+            ema_initialized = false; 
+            
             ESP_LOGI(TAG, "Calibracao concluida. Retomando telemetria.");
             continue; 
         }
 
-        // Leitura em Burst dos 12 bytes
+        // Leitura em Burst dos 12 bytes da IMU
         if (_i2cBus->readRegisters(ICM_ADDRESS, REG_ACCEL_XOUT_H, buffer, 12)) {
             
             int16_t rawAx = (buffer[0] << 8) | buffer[1];
@@ -140,38 +156,73 @@ void ImuTask::runLoop() {
             int16_t rawGy = (buffer[8] << 8) | buffer[9];
             int16_t rawGz = (buffer[10] << 8) | buffer[11];
 
-            TelemetryDTO dto = {};
-            dto.type = MessageType::IMU;
-            dto.payload.imu.timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
-            
-            // Aceleração: (m/s²) * 100 -> int16_t
-            dto.payload.imu.linear_acceleration_x = (int16_t)((((rawAx - _accelBiasX) / 8192.0f) * 9.81f) * 100.0f);
-            dto.payload.imu.linear_acceleration_y = (int16_t)((((rawAy - _accelBiasY) / 8192.0f) * 9.81f) * 100.0f);
-            dto.payload.imu.linear_acceleration_z = (int16_t)((((rawAz - _accelBiasZ) / 8192.0f) * 9.81f) * 100.0f);
+            // 1. Converter as leituras cruas para a escala física em FLOAT
+            float cur_accel_x = (((rawAx - _accelBiasX) / 8192.0f) * 9.81f) * 100.0f;
+            float cur_accel_y = (((rawAy - _accelBiasY) / 8192.0f) * 9.81f) * 100.0f;
+            float cur_accel_z = (((rawAz - _accelBiasZ) / 8192.0f) * 9.81f) * 100.0f;
 
-            // Rotação: (°/s) * 10 -> int16_t
-            dto.payload.imu.rotation_speed_x = (int16_t)((((rawGx - _gyroBiasX) / 131.0f)) * 10.0f);
-            dto.payload.imu.rotation_speed_y = (int16_t)((((rawGy - _gyroBiasY) / 131.0f)) * 10.0f);
-            dto.payload.imu.rotation_speed_z = (int16_t)((((rawGz - _gyroBiasZ) / 131.0f)) * 10.0f);
+            float cur_gyro_x = (((rawGx - _gyroBiasX) / 131.0f)) * 10.0f;
+            float cur_gyro_y = (((rawGy - _gyroBiasY) / 131.0f)) * 10.0f;
+            float cur_gyro_z = (((rawGz - _gyroBiasZ) / 131.0f)) * 10.0f;
 
-            // Leitura do Magnetômetro
-            // Precisamos ler 7 bytes a partir de 0x11: HXL, HXH, HYL, HYH, HZL, HZH e o ST2 
+            // Leitura e Escala do Magnetômetro em FLOAT
+            float cur_mag_x = 0, cur_mag_y = 0, cur_mag_z = 0;
             uint8_t magBuffer[7];
             if (_i2cBus->readRegisters(0x0C, 0x11, magBuffer, 7)) {
-                // O AK09916 é Little Endian, diferente do ICM
-                int16_t rawMagX = (magBuffer[1] << 8) | magBuffer[0];
-                int16_t rawMagY = (magBuffer[3] << 8) | magBuffer[2];
-                int16_t rawMagZ = (magBuffer[5] << 8) | magBuffer[4];
-                
-                // Obs.: O AK09916 entrega dados diretos em 0.15 µT/LSB
-                // Estamos enviando os bits crus para preservar a escala
-                // A conversão para µT ou mG pode ser feita na estação
-                dto.payload.imu.magnetic_field_x = rawMagX;
-                dto.payload.imu.magnetic_field_y = rawMagY;
-                dto.payload.imu.magnetic_field_z = rawMagZ;
+                cur_mag_x = (float)((int16_t)((magBuffer[1] << 8) | magBuffer[0]));
+                cur_mag_y = (float)((int16_t)((magBuffer[3] << 8) | magBuffer[2]));
+                cur_mag_z = (float)((int16_t)((magBuffer[5] << 8) | magBuffer[4]));
+            } else if (ema_initialized) {
+                // Se a leitura falhar, assume a última válida para não quebrar o filtro
+                cur_mag_x = ema_mag_x; cur_mag_y = ema_mag_y; cur_mag_z = ema_mag_z;
             }
 
-            _orchestrator->pushEvent(dto);
+            // Aplicação do Filtro EMA
+            if (!ema_initialized) {
+                ema_accel_x = cur_accel_x; ema_accel_y = cur_accel_y; ema_accel_z = cur_accel_z;
+                ema_gyro_x  = cur_gyro_x;  ema_gyro_y  = cur_gyro_y;  ema_gyro_z  = cur_gyro_z;
+                ema_mag_x   = cur_mag_x;   ema_mag_y   = cur_mag_y;   ema_mag_z   = cur_mag_z;
+                ema_initialized = true;
+            } else {
+                ema_accel_x = (ALPHA * cur_accel_x) + ((1.0f - ALPHA) * ema_accel_x);
+                ema_accel_y = (ALPHA * cur_accel_y) + ((1.0f - ALPHA) * ema_accel_y);
+                ema_accel_z = (ALPHA * cur_accel_z) + ((1.0f - ALPHA) * ema_accel_z);
+
+                ema_gyro_x = (ALPHA * cur_gyro_x) + ((1.0f - ALPHA) * ema_gyro_x);
+                ema_gyro_y = (ALPHA * cur_gyro_y) + ((1.0f - ALPHA) * ema_gyro_y);
+                ema_gyro_z = (ALPHA * cur_gyro_z) + ((1.0f - ALPHA) * ema_gyro_z);
+
+                ema_mag_x = (ALPHA * cur_mag_x) + ((1.0f - ALPHA) * ema_mag_x);
+                ema_mag_y = (ALPHA * cur_mag_y) + ((1.0f - ALPHA) * ema_mag_y);
+                ema_mag_z = (ALPHA * cur_mag_z) + ((1.0f - ALPHA) * ema_mag_z);
+            }
+
+            // Down-sampling (Contar até 10 para enviar a 10Hz)
+            sample_counter++;
+            if (sample_counter >= 10) {
+                TelemetryDTO dto = {};
+                dto.type = MessageType::IMU;
+                dto.payload.imu.timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+                
+                // Conversão final do float filtrado para int16_t
+                dto.payload.imu.linear_acceleration_x = (int16_t)ema_accel_x;
+                dto.payload.imu.linear_acceleration_y = (int16_t)ema_accel_y;
+                dto.payload.imu.linear_acceleration_z = (int16_t)ema_accel_z;
+
+                dto.payload.imu.rotation_speed_x = (int16_t)ema_gyro_x;
+                dto.payload.imu.rotation_speed_y = (int16_t)ema_gyro_y;
+                dto.payload.imu.rotation_speed_z = (int16_t)ema_gyro_z;
+
+                dto.payload.imu.magnetic_field_x = (int16_t)ema_mag_x;
+                dto.payload.imu.magnetic_field_y = (int16_t)ema_mag_y;
+                dto.payload.imu.magnetic_field_z = (int16_t)ema_mag_z;
+
+                _orchestrator->pushEvent(dto);
+                
+                // Reseta o contador para o próximo ciclo de 10
+                sample_counter = 0;
+            }
+
         } else {
             ESP_LOGW(TAG, "Falha na leitura em burst do ICM-20948.");
         }

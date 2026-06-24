@@ -9,4 +9,5 @@ idf_component_register(
     "domain" 
     "hardware_abstraction" 
     "freertos"
+    "esp_timer"
 )

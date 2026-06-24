@@ -1,10 +1,13 @@
 #include "gps_task.hpp"
+
 #include "esp_log.h"
+#include "esp_timer.h"
+
 #include <string.h>
 #include <stdlib.h>
 
 static const char* TAG = "GPS_TASK";
-
+    
 // O tamanho ideal para não perder pacotes se o FreeRTOS atrasar o escalonamento
 #define UART_BUF_SIZE 1024
 
@@ -112,9 +115,15 @@ void GpsTask::runLoop() {
     TelemetryDTO dto = {};
     dto.type = MessageType::GPS;
 
+    // Controle de frequência
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    const TickType_t xFrequency = pdMS_TO_TICKS(500); // 2Hz
+
     while (true) {
+        vTaskDelayUntil(&xLastWakeTime, xFrequency);
+
         // A task bloqueia aqui. Ela só acorda (gastando CPU) quando houver bytes físicos na porta serial.
-        // Timeout de 100ms para evitar travamentos infinitos.
+        // Timeout de 100ms
         int len = uart_read_bytes(_uartNum, data, UART_BUF_SIZE - 1, pdMS_TO_TICKS(100));
         
         if (len > 0) {
@@ -191,7 +200,7 @@ void GpsTask::runLoop() {
                         // Apenas despache para o Orchestrator se você tiver um Fix válido (satélites > 0)
                         if (dto.payload.gps.satellites > 0) {
                             dto.type = MessageType::GPS;
-                            dto.payload.gps.timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+                            dto.payload.gps.timestamp_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
                             _orchestrator->pushEvent(dto);
                         }
                     }

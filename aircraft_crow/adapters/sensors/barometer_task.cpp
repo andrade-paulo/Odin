@@ -1,5 +1,7 @@
 #include "barometer_task.hpp"
+
 #include "esp_log.h"
+#include "esp_timer.h"
 
 static const char* TAG = "BARO_TASK";
 
@@ -79,7 +81,13 @@ void BarometerTask::runLoop() {
     uint8_t buffer[3]; // O ADC do MS5611 devolve 24 bits (3 bytes)
     const float EMA_ALPHA = 0.2f; // Fator de suavização (0.0 a 1.0). Altere conforme o ruído do vento.
 
+    // Controle de frequência
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    const TickType_t xFrequency = pdMS_TO_TICKS(200); // 5Hz
+
     while (true) {
+        vTaskDelayUntil(&xLastWakeTime, xFrequency);
+
         // Leitura da pressão
         _i2cBus->writeCommand(MS5611_ADDR, CMD_CONVERT_D1_4096);
         vTaskDelay(pdMS_TO_TICKS(10)); // Libera a CPU por exatos 10ms (ADC requer ~9.04ms)
@@ -119,7 +127,7 @@ void BarometerTask::runLoop() {
             
             TelemetryDTO dto = {};
             dto.type = MessageType::BARO;
-            dto.payload.barometer.timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+            dto.payload.barometer.timestamp_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
             
             // Quantização Delta Pressão (Pa) -> int16_t
             dto.payload.barometer.pressure_delta = (int16_t)(_emaPressure - _basePressure);
