@@ -161,8 +161,8 @@ uint8_t Sx1276Driver::readRegister(uint8_t reg) {
 
 void Sx1276Driver::writeBuffer(uint8_t reg, const uint8_t* buffer, size_t length) {
     // Aloca um buffer temporário para SPI (Registro + Dados)
-    uint8_t* tx_data = new uint8_t[length + 1];
-    tx_data[0] = reg | 0x80; // MSB = 1 para Write
+    uint8_t tx_data[257];
+    tx_data[0] = reg | 0x80;
     memcpy(&tx_data[1], buffer, length);
 
     spi_transaction_t t = {};
@@ -170,5 +170,4 @@ void Sx1276Driver::writeBuffer(uint8_t reg, const uint8_t* buffer, size_t length
     t.tx_buffer = tx_data;
 
     spi_device_transmit(_spi, &t);
-    delete[] tx_data;
 }

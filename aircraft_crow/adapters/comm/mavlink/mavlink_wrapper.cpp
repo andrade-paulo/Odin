@@ -1,5 +1,6 @@
 #include "mavlink_wrapper.hpp"
 
+#include "esp_timer.h"
 #include "generated/crow_telemetry/mavlink.h"
 
 
@@ -89,7 +90,7 @@ size_t MavlinkWrapper::pack_command(CommandType cmd, uint8_t* buffer, size_t max
         _system_id, 
         _component_id, 
         &msg,
-        0, // Sem timestamp nativo na struct de comando do DTO
+        esp_timer_get_time() / 1000,
         cmd_value
     );
 
