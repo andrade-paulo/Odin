@@ -1,0 +1,52 @@
+    <?xml version="1.0"?>
+<mavlink>
+    <include>minimal.xml</include>
+
+    <enums>
+        <enum name="CROW_COMMAND_TYPE">
+            <description>Comandos do piloto via PWM e estado do sistema</description>
+            <entry value="0" name="CROW_CMD_IDLE"/>
+            <entry value="1" name="CROW_CMD_START_RECORDING"/>
+            <entry value="2" name="CROW_CMD_STOP_RECORDING"/>
+        </enum>
+    </enums>
+
+    <messages>
+        <message id="201" name="CROW_IMU">
+            <description>Dados quantizados da IMU e Magnetômetro</description>
+            <field type="uint32_t" name="time_boot_ms">Timestamp (ms)</field>
+            <field type="int16_t" name="accel_x">X accel (m/s^2 * 100)</field>
+            <field type="int16_t" name="accel_y">Y accel (m/s^2 * 100)</field>
+            <field type="int16_t" name="accel_z">Z accel (m/s^2 * 100)</field>
+            <field type="int16_t" name="gyro_x">X gyro (deg/s * 10)</field>
+            <field type="int16_t" name="gyro_y">Y gyro (deg/s * 10)</field>
+            <field type="int16_t" name="gyro_z">Z gyro (deg/s * 10)</field>
+            <field type="int16_t" name="mag_x">X mag (raw LSB)</field>
+            <field type="int16_t" name="mag_y">Y mag (raw LSB)</field>
+            <field type="int16_t" name="mag_z">Z mag (raw LSB)</field>
+        </message>
+
+        <message id="202" name="CROW_BARO">
+            <description>Dados quantizados do Barômetro</description>
+            <field type="uint32_t" name="time_boot_ms">Timestamp (ms)</field>
+            <field type="int16_t" name="pressure_delta">Pressure offset (Pa)</field>
+            <field type="int16_t" name="temperature">Temperature (C * 100)</field>
+        </message>
+
+        <message id="203" name="CROW_GPS">
+            <description>Dados de GPS preservando alta acurácia (Ponto Fixo)</description>
+            <field type="uint32_t" name="time_boot_ms">Timestamp (ms)</field>
+            <field type="int32_t" name="latitude">Latitude (deg * 1E7)</field>
+            <field type="int32_t" name="longitude">Longitude (deg * 1E7)</field>
+            <field type="uint16_t" name="altitude_msl">Altitude MSL (m * 10)</field>
+            <field type="uint16_t" name="ground_speed">Ground speed (m/s * 10)</field>
+            <field type="uint8_t" name="satellites">Number of satellites visible</field>
+        </message>
+
+        <message id="204" name="CROW_COMMAND">
+            <description>Comando de alteração de estado do sistema</description>
+            <field type="uint32_t" name="time_boot_ms">Timestamp (ms)</field>
+            <field type="uint8_t" name="command" enum="CROW_COMMAND_TYPE">Estado comandado</field>
+        </message>
+    </messages>
+</mavlink>
