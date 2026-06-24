@@ -333,12 +333,4 @@ A execução dos ensaios HIL ocorreu sob duas variações de configuração topo
 
 Na segunda variação, a simulação foi restrita aos sensores. O adaptador de produção continuou a injetar os perfis de voo sintetizados no domínio, contudo, a saída de dados foi redirecionada para a \textit{LoRaTask}, rotina de transmissão real em radiofrequência. Para capturar esses dados, configurou-se uma estação receptora em solo conectada ao computador host, onde o script data\_consumer.py passou a atuar como monitor serial exclusivo desta segunda placa. Essa abordagem avaliou a interoperabilidade entre o domínio de software e a camada física de comunicação. O teste garantiu a validação da serialização dos pacotes pelo protocolo MAVLink e atestou a estabilidade temporal do driver SPI na interface com o transceptor LoRa sob condições de carga contínua, homologando o fluxo de transmissão de ponta a ponta.
 
-\subsection{Bancada para validação das características elétricas}
-
-\begin{figure}[ht]
-    \centering
-    \caption{Validação das Tensões em Cada Trilha da PCB}
-    \label{fig:tensao_pcb}
-    \includegraphics[width=1\textwidth]{images/tensao_pcb.png}\\
-    \footnotesize Fonte: Autoria própria, 2026.
-\end{figure}
+Dessa forma, o sistema embarcado foi considerado pronto e validado para captura dos resultados relativos a este componente.

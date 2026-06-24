@@ -1,2 +1,36 @@
 \chapter{\textit{Middleware}}
 \label{chap:middleware}
+
+O middleware, entitulado neste projeto de Shoulder é um importante componente responsável por integrar diferentes fontes de dados e direcionar à estação em solo. Para o escopo do trabalho, apenas um componente irá oferecer dados para o middleware, porém, sua arquitetura e firmware foram construídos pensando na escalabilidade de fontes de informação. Portanto, este componente terá um nível de complexidade notavelmente menor em relação ao sistema embarcado apresentado no capítulo \ref{cap:sistemas-embarcados}.
+
+\section{Hardware}
+A infraestrutura física do componente middleware foi projetada sob premissas diametralmente opostas às restrições exigidas pelo sistema embarcado na aeronave. Por atuar como uma estação fixada em solo, livre das perturbações mecânicas de voo e das severas limitações de peso e espaço, a arquitetura de hardware priorizou a modularidade e a disponibilidade comercial. O núcleo de processamento é constituído por uma placa de desenvolvimento baseada no microcontrolador ESP32 (ESP32 DevKit), selecionada por integrar nativamente o controlador de rede Wi-Fi essencial para o roteamento dos pacotes UDP e por dispor de duplo núcleo de processamento para gerenciar as interrupções de rádio sem bloqueio de tráfego. Acoplado ao microcontrolador, o sistema emprega o mesmo transceptor LoRa SX1276 operante na banda de 915 MHz, estabelecendo o barramento SPI como via primária para a leitura contínua dos pacotes recebidos do enlace aéreo.
+
+Devido à característica de imobilidade física da operação terrestre, constatou-se a ausência de justificativa técnica para a confecção de uma Placa de Circuito Impresso (PCB) isolada ou para a soldagem permanente dos componentes em protótipos de placa perfurada. Consequentemente, a montagem estrutural foi consolidada sobre matrizes de contatos (\textit{protoboards}) de dimensões reduzidas, empregando fios rígidos para as rotas lógicas e de alimentação, conforme Imagem \ref{fig:middleware_hardware}. Esta decisão construtiva valoriza a manutenabilidade do equipamento, permitindo a substituição facilitada de módulos danificados.
+
+\begin{figure}[ht]
+    \centering
+    \caption{Hardware do Middleware}
+    \label{fig:middleware_hardware}
+    \includegraphics[width=1\textwidth]{images/middleware_hardware.jpg}\\
+    \footnotesize Fonte: Autoria própria, 2026.
+\end{figure}
+
+Quanto à topologia de alimentação, o dimensionamento elétrico abstém-se da complexidade exigida por barramentos compartilhados com outros componentes. A energização de todo o subsistema de solo ocorre de forma direta pela interface USB embutida no ESP32 DevKit. Esta porta recebe a tensão nominal de $5 V$ e utiliza o regulador linear de baixa queda (LDO) embarcado na própria placa de desenvolvimento para rebaixar e estabilizar a diferença de potencial nos $3,3 V$ demandados pelo microcontrolador e pelo módulo LoRa \cite{esp32_datasheet} \cite{sx1276_datasheet}. Esse arranjo arquitetônico viabiliza a utilização de fontes genéricas de longa duração, como baterias portáteis comerciais (\textit{power banks}) ou portas lógicas de computadores da estação de controle. Sob este paradigma, o projeto desobriga-se de minimizar o consumo energético ou implementar filtros capacitivos robustos.
+
+\section{Firmware}
+O firmware do componente middleware, instanciado em um microcontrolador dedicado na estação de solo, opera conceitualmente como um nó integrador entre a camada física de radiofrequência (Sub-GHz) e a rede local sem fio (Wi-Fi). Sua arquitetura interna, representada na Figura \ref{fig:arquitetura_middleware}, é orientada a eventos e fortemente baseada no escalonamento de tarefas assíncronas provido pelo sistema operacional de tempo real (FreeRTOS). O objetivo central dessa topologia é assegurar um fluxo de dados contínuo e unidirecional, desde a captação física dos sinais até a entrega dos pacotes estruturados ao sistema cliente, mitigando gargalos de processamento.
+
+\begin{figure}[ht]
+    \centering
+    \caption{Diagrama de Arquitetura do Middleware}
+    \label{fig:arquitetura_middleware}
+    \includegraphics[width=1\textwidth]{images/arquitetura_middleware.png}\\
+    \footnotesize Fonte: Autoria própria, 2026.
+\end{figure}
+
+O fluxo de dados inicia-se no módulo SX1276, o qual é configurado para operar no modo de recepção contínua (RX Continuous). Diferentemente da máquina de estados transiente adotada no sistema embarcado na aeronave, o driver do middleware mantém o rádio em estado de escuta ininterrupta. A recepção de um pacote válido no espectro aéreo aciona o pino físico de interrupção DIO0, mapeado para o evento RxDone. Esta ação engatilha uma rotina de serviço de interrupção (ISR) que, por sua vez, acorda uma tarefa de alta prioridade. Essa abordagem por interrupção de hardware isenta o microcontrolador de rotinas custosas de polling, delegando o tempo de CPU à extração eficiente dos bytes do registrador FIFO do rádio para uma fila de recepção na memória primária.
+
+A segunda etapa do fluxo corresponde à decodificação e serialização padronizada da informação. Os arranjos de bytes brutos extraídos da fila representam um espelho exato do empacotamento em nível de memória gerado pela aeronave (telemetry\_dto\_packed\_t). Contudo, o envio dessa estrutura engessada violaria o princípio de interoperabilidade da arquitetura. Diante disso, o núcleo do firmware atua como um tradutor: um módulo central avalia o tipo primitivo recebido e submete os dados a funções de extração que os encapsulam em frames legítimos do protocolo MAVLink. Esta conversão assegura que as especificidades construtivas do produtor sejam abstraídas, entregando à próxima camada pacotes genéricos e autossuficientes.
+
+Por fim, o escoamento dessas mensagens padronizadas é delegado a um subsistema de comunicação IP. O microcontrolador do middleware é parametrizado para instanciar um ponto de acesso sem fio (Access Point - AP), assumindo a responsabilidade de gerenciar as concessões de rede local via DHCP. O tráfego de saída é coordenado por uma tarefa dedicada à interface de sockets operante sobre o protocolo User Datagram Protocol (UDP). Esta tarefa consome as mensagens MAVLink processadas e as despacha para o endereço de IP estático da estação de operação cliente (Odin). A manutenção do protocolo UDP prioriza a vazão contínua (\textit{throughput}) e a baixa latência, desconsiderando mecanismos de retransmissão ou aperto de mãos (\textit{handshake}), características toleráveis na visualização em tempo real de ensaios em voo.
