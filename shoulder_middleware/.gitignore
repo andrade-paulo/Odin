@@ -1,0 +1,58 @@
+# Ignore build artifacts produced by ESP-IDF/CMake
+/build/
+/**/build/
+./build/
+
+# SDK config files (keep out of repo if you customize per-device)
+sdkconfig
+sdkconfig.old
+sdkconfig.cmake
+sdkconfig.h
+
+# CMake / Ninja outputs
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# Temporary and generated files
+*.log
+*.tmp
+*.swp
+*~
+
+# ESP tool outputs and images
+*.bin
+*.elf
+*.map
+*.hex
+
+# Partition/flash helper files
+flash_args
+flash_args.*
+flasher_args.json
+flasher_args.json.in
+
+# IDE/editor files
+.vscode/
+.idea/
+*.iml
+
+# Python virtualenvs and caches
+.python_env/
+venv/
+env/
+*.venv/
+__pycache__/
+*.pyc
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# PlatformIO
+.pio/
+
+# Misc
+.cache/
+.pytest_cache/
