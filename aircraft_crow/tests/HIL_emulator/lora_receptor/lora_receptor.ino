@@ -1,72 +1,70 @@
 #include <SPI.h>
 #include <LoRa.h>
 
-// Defina os pinos do seu ESP32 RECEPTOR
-const int csPin = 5;      // Chip Select (NSS)
-const int resetPin = 14;  // Reset
-const int irqPin = 2;     // DIO0 (Interrupção)
+// Definição dos pinos do ESP32 RECEPTOR
+const int csPin = 5;
+const int resetPin = 14;
+const int irqPin = 34;
 
 void setup() {
   Serial.begin(115200);
   while (!Serial);
 
-  Serial.println("\n=== Estação Base - Sniffer MAVLink v2 ===");
-  Serial.println("Inicializando Rádio LoRa (915 MHz)...");
+  // Imprime o cabeçalho do CSV uma única vez na inicialização
+  Serial.println("timestamp,RSSI,SNR,Is_Valid_Mavlink,Package_Size,Package_Hex");
 
   LoRa.setPins(csPin, resetPin, irqPin);
 
-  // Inicializa em 915MHz
+  // Inicializa o rádio em 915MHz
   if (!LoRa.begin(915E6)) {
-    Serial.println("FALHA: Rádio LoRa não encontrado. Verifique as conexões SPI.");
-    while (1); // Trava aqui se der erro
+    // Falha crítica de hardware - Trava a execução
+    while (1);
   }
 
   // Coloca o rádio em modo de escuta contínua
   LoRa.receive();
-  Serial.println("Rádio OK. Aguardando pacotes de telemetria...");
 }
 
 void loop() {
-  // Verifica se há pacotes no buffer de hardware do SX1276
+  // Verifica se há pacotes no buffer do hardware
   int packetSize = LoRa.parsePacket();
-  
+
   if (packetSize) {
     uint8_t buffer[256];
     int i = 0;
-    
+
     // Lê todos os bytes do FIFO do LoRa
     while (LoRa.available() && i < 256) {
       buffer[i++] = (uint8_t)LoRa.read();
     }
 
-    Serial.print("--------------------------------------------------\n");
-    Serial.print("Pacote Recebido: ");
+    // Coleta de Metadados
+    unsigned long timestamp = millis();
+    int rssi = LoRa.packetRssi();
+    float snr = LoRa.packetSnr();
+
+    // Validação MAVLink v2 (Verifica se o pacote é maior que 0 e começa com 0xFD)
+    int isValidMavlink = (packetSize > 0 && buffer[0] == 0xFD) ? 1 : 0;
+
+    // --- SAÍDA FORMATADA EM CSV ---
+    Serial.print(timestamp);
+    Serial.print(",");
+    Serial.print(rssi);
+    Serial.print(",");
+    Serial.print(snr);
+    Serial.print(",");
+    Serial.print(isValidMavlink);
+    Serial.print(",");
     Serial.print(packetSize);
-    Serial.print(" bytes | RSSI: ");
-    Serial.print(LoRa.packetRssi()); // Força do sinal (mais próximo de 0 é melhor)
-    Serial.print(" dBm | SNR: ");
-    Serial.println(LoRa.packetSnr());
+    Serial.print(",");
 
-    // Validação MAVLink v2
-    if (packetSize > 0 && buffer[0] == 0xFD) {
-        Serial.println("[OK] Magic Byte MAVLink v2 (0xFD) detectado.");
-        
-        // O byte 1 no MAVLink v2 indica o tamanho do Payload (excluindo header e CRC)
-        int payloadLen = buffer[1];
-        Serial.print("Tamanho real do Payload interno: ");
-        Serial.print(payloadLen);
-        Serial.println(" bytes");
-    } else {
-        Serial.println("[AVISO] Pacote não parece ser MAVLink v2 ou está corrompido.");
-    }
-
-    // Hex Dump do pacote completo para comparação com o log do transmissor
-    Serial.print("Hex Dump: ");
+    // Hex Dump contínuo (sem espaços) para formar uma única string na coluna
     for (int j = 0; j < i; j++) {
-      if (buffer[j] < 0x10) Serial.print("0");
+      if (buffer[j] < 0x10) Serial.print("0"); // Padding para manter 2 caracteres por byte
       Serial.print(buffer[j], HEX);
-      Serial.print(" ");
     }
-    Serial.println("\n");
+
+    // Quebra de linha para finalizar o registro (linha do CSV)
+    Serial.println();
   }
 }
