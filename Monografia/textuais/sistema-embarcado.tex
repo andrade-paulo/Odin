@@ -1,0 +1,336 @@
+\chapter{Sistema Embarcado}
+\label{cap:sistema-embarcado}
+
+\section{Casos de Uso}
+Descrição de cada caso de uso e como o usuário irá interagir com o sistema
+
+\section{Microcontrolador}
+A escolha da unidade de processamento central é um dos pilares para o desenvolvimento deste componente, visto que o microcontrolador deve balancear restrições físicas e elétricas com a demanda por processamento de dados em tempo real. Desta forma, realizou-se uma comparação entre duas principais arquiteturas concorrentes no cenário de sistemas distribuídos embarcados: o microcontrolador Espressif ESP32 e o STMicroelectronics STM32F405RG.
+
+O dimensionamento da topologia de alimentação elétrica do sistema é diretamente impactado pelas características de consumo do circuito integrado. A arquitetura Xtensa do ESP32 demonstra um consumo energético mais elevado. Mesmo quando os módulos de radiofrequência nativos (Wi-Fi e Bluetooth) são completamente desativados via \textit{software}, o núcleo consome continuamente entre 30 mA e 50 mA apenas para a manutenção do agendador do sistema operacional de tempo real (FreeRTOS) em estado de ociosidade \cite{esp32_datasheet}. 
+
+Quando associado aos picos transientes de corrente demandados pela transmissão de longo alcance via rádio, este comportamento impõe a necessidade de uma arquitetura de regulação de tensão mais complexa com conversores chaveados e capacitores baixa resistência em série equivalente (ESR) para mitigar quedas abruptas de tensão e instabilidades térmicas na placa.
+
+Em contrapartida, a arquitetura ARM Cortex-M4 presente no STM32F405RG foi projetada sob o paradigma de eficiência para baixo consumo. Operando em sua frequência máxima de 168 MHz, o dispositivo apresenta um consumo dinâmico previsível situado na faixa de 30 mA a 40 mA, mantendo uma dissipação térmica estável e eliminando a exigência de malhas complexas de alívio térmico ou dissipadores na placa-base. \cite{STM32F405RG_datasheet}
+
+O ESP32 apresenta elevada capacidade de processamento por meio de sua arquitetura \textit{Dual-Core} com dois núcleos operando a 240 MHz (Xtensa LX6). Esta característica possibilita o isolamento completo de tarefas através do escalonamento simétrico, alocando o processamento de baixo nível e a leitura de sensores em barramentos I2C/SPI ao Core 0, enquanto o gerenciamento da máquina de estados (FSM) e o orquestrador principal executam no Core 1. Essa separação impede que as latências de escrita de arquivos em cartões de memória provoquem perda de amostras de dados. No entanto, o seu coprocessador de ponto flutuante é menos otimizado e a arquitetura de cache do FreeRTOS introduz pequenas variações de latência (\textit{jitters}).
+
+Por outro lado, o STM32F405RG adota um único núcleo operando a 168 MHz, porém integra uma Unidade de Ponto Flutuante (FPU) nativa implementada diretamente por \textit{hardware} \cite{STM32F405RG_datasheet}. Durante o cálculo de filtros matemáticos complexos, a FPU executa as operações de ponto flutuante de forma quase instantânea. Ademais, a arquitetura ARM fornece um determinismo de \textit{hardware} em tempo real superior, assegurando que interrupções críticas associadas aos sensores sejam atendidas com latências fixas e previsíveis.
+
+A integração física e lógica com múltiplos periféricos síncronos e assíncronos requer controladores de barramento robustos e isolados de ruído. O ESP32 emprega uma matriz de comutação de GPIO altamente flexível, permitindo o mapeamento de pinos lógicos I2C, SPI e UART para praticamente qualquer terminal físico do encapsulamento, o que simplifica o desenvolvimento do \textit{layout} de trilhas da placa de circuito. Contudo, os controladores internos de barramento da família Espressif historicamente apresentam limitações e anomalias de comportamento em silício sob condições de alta carga de dados, exigindo rotinas complexas de tratamento de exceções no \textit{software} para evitar travamentos do barramento em caso de falhas de sincronismo de um sensor \cite{esp32_gpio_anomalies}.
+
+Já o STM32F405RG conta com periféricos de comunicação dedicados com posições de pinos imutáveis. Seus controladores I2C, SPI e USART são blindados internamente em \textit{hardware}, apresentando maior imunidade a ruídos. Adicionalmente, o dispositivo dispõe de um barramento nativo de entrada e saída digital segura (SDIO) por \textit{hardware} \cite{STM32F405RG_datasheet}. A gravação e a persistência de registros de voo através de uma interface SDIO dedicada alcança taxas de transferência substancialmente superiores e com maior confiabilidade do que a emulação de cartões através do protocolo SPI genérico tipicamente implementada em plataformas baseadas no ESP32.
+
+A análise indica que, para o cenário deste sistema, desprovido da necessidade de conectividade sem fio de curto alcance nativa, o ecossistema STM32 alinha-se melhor aos requisitos de determinismo, tolerância a falhas e confiabilidade exigidos.
+
+Contudo, apesar das vantagens de \textit{hardware} apresentadas pela plataforma ARM, o microcontrolador ESP32 foi selecionado para a implementação final do protótipo deste trabalho devido à viabilidade de execução, destacando-se na ampla acessibilidade local aos componentes e módulos de desenvolvimento, no menor custo relativo de instrumentação e na robustez das cadeias de suprimentos disponíveis, garantindo o cumprimento dos prazos.
+
+Com esta decisão, iniciou-se o processo de desenho do esquemático do circuito eletrônico, representado com o microcontrolador na Imagem \ref{fig:mc_scheme}. Vale citar que, para melhor manutenção, simplicidade e devido a motivos de acessibilidade, o sistema será implementado a nível de módulos comerciais. Ou seja, os componentes serão todos \textit{Through-hole technology} (THT) soldados a uma placa caseira com trilhas em cobre.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/mc_scheme.png}
+    \caption{Esquemático Microcontrolador} \label{fig:mc_scheme}
+\end{figure}
+
+Por fim, para amenizar possíveis quedas de tensão em momentos de alta demanda da corrente, anexou-se um capacitor cerâmico de $100 nf$ em paralelo com a entrada VIN do ESP32. Por mais que módulos comerciais como o ESP32 Dev Kit já tenham sistemas integrados de controle energético, é importante garantir que não haja renícios forçados por subtensão (\textit{brownout}).
+
+\section{Sensores e Módulos}
+A seleção dos módulos de aquisição do sistema embarcado foi especificamente motivada pelos requisitos funcionais de telemetria. Conforme estabelecido previamente na Tabela \ref{tab:dados-requisitados}, o hardware em nível físico deve ser capaz de prover a aceleração no eixo da gravidade, a atitude espacial da aeronave, a velocidade relativa ao solo e a razão de subida da aeronave. Para satisfazer simultaneamente o escopo analítico das equipes de Cargas, Desempenho e Estabilidade, o sistema de aquisição deve consolidar componentes que operem sob margens de confiabilidade, lidando com os ruídos mecânicos e elétricos característicos do ambiente de voo.
+
+Para o fornecimento dos dados de atitude tridimensional e do vetor de aceleração da gravidade, o projeto exige a implementação de um Sistema de Referência de Atitude e Proa (AHRS). Em ciclos de desenvolvimento passados, componentes de 6 graus de liberdade (6-DOF), a exemplo do legado MPU6050, figuraram como escolhas padrão \cite{tinyml_flight_phases}. Contudo, a ausência de um magnetômetro integrado neste encapsulamento impede a correção do vetor magnético terrestre, resultando na acumulação progressiva de erro matemático (\textit{drift}) no eixo de guinada. 
+
+Outra alternativa amplamente adotada na instrumentação de baixo custo é o sensor BNO055, que integra 9 eixos e um coprocessador para fusão sensorial em hardware \cite{BNO055_datasheet}. Embora essa solução reduza drasticamente o esforço computacional do microcontrolador, sua arquitetura fechada impede a aplicação de filtros customizados e a escolha do componente onde a atitude será inferida, forçando o sistema a enviar pacotes maiores pela rede LoRa.
+
+Desta forma, o presente sistema adota o módulo ICM-20948 como Unidade de Medição Inercial (IMU) primária. Trata-se de uma arquitetura de 9 eixos (acelerômetro, giroscópio e bússola) que entrega dados brutos de boa fidelidade. A associação física do magnetômetro ao silício, somada ao baixo perfil de ruído térmico e mecânico reportado pelo fabricante, confere ao barramento de comunicação uma amostragem satisfatoriamente limpa \cite{ICM-20948_datasheet}.
+
+As análises conduzidas pelo subsistema de Desempenho e a validação do envelope de voo pelo subsistema de Cargas requerem a coleta de dados de translação aerodinâmica e referencial de pista. A aferição da velocidade relativa ao solo é atendida pela integração de um módulo receptor de Sistemas Globais de Navegação por Satélite (GNSS). Módulos legados, como o NEO-6M, limitam-se ao rastreamento primário da constelação GPS com taxas de atualização de apenas 1 Hz a 5 Hz \cite{NEO-6M_datasheet}, induzindo uma latência inaceitável para a dinâmica de manobras das aeronaves. Portanto, selecionou-se o receptor NEO-8M, que suporta o rastreio simultâneo de múltiplas constelações (GPS, GLONASS, Galileo) e fornece atualizações em frequências de até 10 Hz, assegurando a confiabilidade, a precisão posicional e o sincronismo temporal dos vetores de velocidade \cite{NEO-8M_datasheet}.
+
+Por fim, a derivação da razão de subida e a correção da leitura altimétrica fornecida pelo GNSS demandam o monitoramento da pressão atmosférica estática. Soluções comerciais genéricas voltadas para a Internet das Coisas (IoT), como o BMP280, apresentam um piso de ruído e uma variação de medida que comprometem a precisão da aquisição \cite{BMP280_datasheet}. Portanto, adotou-se o módulo MS5611, que fornece uma resolução altimétrica efetiva na escala de centímetros \cite{MS5611_datasheet}. Essa informação é então utilizada para atenuar as margens de erro intrínsecas ao posicionamento por satélite no eixo vertical.
+
+TODO: Tabelas comparativa
+
+Os \textit{footprints} dos componentes comerciais foram desenhados conforme os \textit{datasheets} de cada módulo. Além disso, os sensores foram adicionados ao esquema de circuito do hardware, apresentado na Imagem \ref{fig:sensor_scheme}.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.55\textwidth]{images/sensors_scheme.png}
+    \caption{Esquemático dos Sensores} \label{fig:sensor_scheme}
+\end{figure}
+
+Com os sensores determinados e os protocolos seriais identificados, seguiu-se para o próximo passo de determinar os componentes de comunicação. Estes, serão também módulos comerciais, porém com outro escopo de decisão e implementação.
+
+\section{Componentes de Comunicação}
+Para este sistema, existem três componentes de comunicação: o módulo de transmissão LoRa, a interface PWM com o receptor da aeronave e um \textit{buzzer} ativo para alertas sonoros.
+
+Para a interface PWM, a necessidade é de apenas um barramento para o sinal modular e um barramento para compartilhamento do GND. Visando valorizar a integração da placa com o sistema de controle existente, utilizou-se de um trio de cabos AWG 24 com conctores fêmeas. Esse trio comumente abrange o sinal, o terra e o positivo.
+
+Aqui, surge a oportunidade de ligar o sistema embarcado no mesmo sistema de alimentação do sistema de controle, aproveitando da bateria e componentes já existentes. Esta possibilidade será melhor discutida mais à frente no texto.
+
+Para o módulo LoRa, a principal restrição se dá pelas normas de frequências permitidas para operação \cite{norma_frequencias}. Das opções comercialmente disponíveis, a única variação permitida para operação livre no Brasil é a de frequência $915 MHz$. 
+
+Além disso, o acesso aos módulos pode ser relativamente custoso financeiramente. Portanto, a comparação entre os principais módulos que atendem ao requisito de frequência permitida se deu pelo valor e compatibilidade com o microcontrolador escolhido, como visto na Tabela \ref{tab:modulos_lora}.
+
+Dessa forma, o módulo escolhido foi o SX1276, sendo a Figura \ref{fig:comm_scheme} a adição do LoRa, do PWM e do \textit{buzzer} ao esquemático do projeto.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/comm_scheme.png}
+    \caption{Esquemático dos Comunicadores} \label{fig:comm_scheme}
+\end{figure}
+
+Por fim, vale citar que o módulo LoRa SX1276 exige correntes de pico consideráveis --característica intrínseca dos transmissores de alto alcance --, aproximando-se de $120 mA$ quando configurado para transmitir na potência máxima de $+20 dBm$ \cite{SX1276_datasheet}. Por isso, adicionou-se um capacitor de $100 nf$ em paralelo à entrada VCC do módulo, criando um amortecimento aos picos de potência que o LoRa irá provocar. O pico de consumo do SX1276 não é um fator bloqueante, mas se torna um ponto de atenção para o dimensionamento da camada de alimentação energética do sistema.
+
+\section{Rede de Distribuição de Potência e Dimensionamento Elétrico}
+O projeto de hardware para um sistemas aviônicos embarcado planejamento criterioso da rede de distribuição de potência (PDN). Em VANTs, as oscilações elétricas induzidas por atuadores mecânicos do sistema de controle e as restrições de dissipação térmica representam desafios para a estabilidade do microcontrolador e componentes.
+
+\subsection{Definição da Fonte e Levantamento de Carga}
+O subsistema embarcado recebe energia diretamente dos pinos de barramento do receptor de rádio acoplado ao sistema de controle da aeronave. Esse barramento é alimentado por uma bateria de fosfato de ferro-lítio (LiFePO4) de duas células (2S), que apresenta uma tensão nominal de $6,6 V$, podendo atingir $7,2 V$ quando em estado de carga máxima \cite{LiFePO4}.
+
+Para o dimensionamento físico da rede elétrica, realizou-se um levantamento da demanda de corrente do hardware em regime de operação. O microcontrolador base terá um consumo típico estabilizado, mas demandará correntes complementares durante as rotinas de inicialização \cite{esp32_datasheet}. Simultaneamente, o módulo LoRa operando na banda de $915 MHz$ exige uma demanda instantânea de corrente de aproximadamente $120 mA$ durante os ciclos de transmissão em potência máxima de $+20 dBm$ \cite{SX1276_datasheet}. Estima-se que, sob condições normais de operação, o pico de consumo total do arranjo de processamento, sensores e rádio situa-se em aproximadamente $700 mA$.
+
+\subsection{Problemática Térmica e Ruído Conduzido}
+
+A imposição de rebaixar o nível de tensão de até $7,2 V$ para o patamar operacional de $3,3 V$ sob uma corrente contínua de $0,7 A$ introduz a necessidade de atenção às restrições térmicas. Caso a arquitetura adotasse uma regulação estritamente linear por meio de componentes monolíticos padrão — como o regulador AMS1117-3.3 —, a potência dissipada exclusivamente sob a forma de calor ($P_D$) seria calculada pela Lei de Joule:
+
+$$P_D = (V_{in} - V_{out}) \cdot I$$
+$$P_D = (7,2\text{ V} - 3,3\text{ V}) \cdot 0,7\text{ A} = 2,73\text{ W}$$
+
+Considerando que o encapsulamento físico desses reguladores lineares suporta um limite prático de dissipação térmica próximo a $1,0 W$ em ambientes fechados, a exigência de $2,73 W$ sobrecarregaria o componente em poucos segundos. Esse excesso de calor ativaria os circuitos internos de proteção térmica, resultando no desligamento completo do sistema de telemetria durante o voo \cite{thermal_management}.
+
+Além da restrição térmica, o barramento elétrico é compartilhado com os servomotores da aeronave por meio do receptor. O acionamento dinâmico dessas cargas indutivas gera picos de força contraeletromotriz e quedas severas na tensão de entrada. Sem o devido isolamento elétrico, os disparos rápidos de transmissão do módulo LoRa provocam quedas localizadas de voltagem, colocando o microcontrolador em um estado de \textit{brownout} \cite{the_art_of_electronics}.
+
+\subsection{Arquitetura de Distribuição de Energia \textit{Dual-Rail}}
+
+Para contornar as limitações térmicas e isolar os ruídos conduzidos, implementou-se uma topologia de alimentação do tipo \textit{Dual-Rail}, distribuindo a energia em duas vias independentes:
+
+\begin{itemize}
+  \item{\textbf{Trilha de Potência:} Direcionada aos componentes de consumo elevado e perfil ruidoso, nominalmente o microcontrolador e o transceptor de rádio. Utiliza-se o mini-360, um conversor \textit{Step-Down} chaveado que reduz a tensão de entrada para $3,3 V$ com eficiência superior a $85\%$. Esse módulo suporta picos de corrente de até $2 A$ sem gerar dissipação térmica expressiva, garantindo a estabilidade operacional dos módulos de comunicação \cite{mini360_datasheet}.}
+  \item{\textbf{Trilha Sensível:} Dedicada exclusivamente aos componentes de instrumentação (IMU, barômetro e GNSS), cujo consumo somado é baixo. Um regulador linear de baixa queda de tensão (LDO), alimentado diretamente pela fonte primária, fornece uma saída isolada em $3,3 V$. Devido à baixa corrente dos sensores, o calor gerado é mínimo. A vantagem desta abordagem reside na pureza espectral do sinal elétrico, visto que os LDOs barram os ruídos de alta frequência provenientes do chaveamento do conversor \textit{Buck} e das transmissões de rádio, preservando a integridade das leituras analógicas e digitais dos sensores \cite{power_delivery_network_design}.}
+\end{itemize}
+
+\subsection{Dimensionamento de Filtros e Análise de Transientes}
+
+Para garantir o amortecimento dos transientes de carga e prevenir oscilações que violem os limites operacionais dos circuitos integrados, o dimensionamento dos capacitores de desacoplamento e armazenamento local baseou-se na equação fundamental da capacitância em função da variação temporal de corrente e tensão:
+
+$$C = I \cdot \frac{\Delta t}{\Delta V}$$
+
+No nó de transmissão de $3,3 V$ (compartilhado pelo processador e pelo rádio), estima-se que o degrau de corrente abrupto ($I$) atinja $0,62 A$ durante as janelas de calibração e envio de pacotes. Sabendo que o limite inferior de integridade dos circuitos de radiofrequência ocorre em $3,0 V$, a queda de tensão máxima tolerável ($\Delta V$) no barramento é de $3,3\text{ V} - 3,0\text{ V} = 0,3\text{ V}$. Assumindo um tempo de resposta aproximado ($\Delta t$) de $200\,\mu\text{s}$ para que a malha de realimentação do conversor \textit{Buck} compense a demanda repentina \cite{mini360_datasheet}, o cálculo da capacitância necessária resulta em:
+
+$$C = 0,62\text{ A} \cdot \frac{0,0002\text{ s}}{0,3\text{ V}} \approx 413\,\mu\text{F}$$
+
+Para suprir essa demanda com margem de segurança, adotou-se um capacitor eletrolítico de $470\,\mu\text{F}$ posicionado fisicamente próximo aos pinos de alimentação do circuito de controle. O componente selecionado apresenta uma resistência série equivalente de $150\text{ m}\Omega$ ($\text{ESR} = 0,15\,\Omega$) \cite{capacitor_esr}. Para mitigar a queda de tensão resultante dessa resistência e compensar a alta Indutância Série Equivalente (ESL) típica desse tipo de encapsulamento, adicionou-se um capacitor cerâmico de $100\text{ nF}$ em paralelo. Essa associação reduz a impedância total do conjunto em frequências elevadas, impedindo que flutuações de tensão indutivas ou resistivas reiniciem o processamento.
+
+Na entrada primária de 6,6 V, o sistema deve suportar transientes mecânicos mais lentos gerados pelos servomotores, cujos distúrbios na linha de transmissão duram cerca de $1\text{ ms}$ ($\Delta t = 0,001\text{ s}$) \cite{servo_disturbio}. Considerando a corrente máxima de regime da placa de telemetria ($I = 0,7\text{ A}$) e estabelecendo uma margem de queda de tensão estritamente segura de $\Delta V = 1,0\text{ V}$ para manter a entrada dos reguladores acima do limite de \textit{dropout}, aplica-se a relação matemática:
+
+$$C = 0,7\text{ A} \cdot \frac{0,001\text{ s}}{1,0\text{ V}} = 700\,\mu\text{F}$$
+
+Visando trazer robustez ao hardware contra os altos consumos provenientes dos esforços nas superfícies de comando da aeronave, implementou-se um capacitor eletrolítico de $1000\,\mu\text{F}$ com isolação nominal de $16 V$ na entrada da placa. Em paralelo a esse componente, adicionou-se um capacitor cerâmico de $100\text{ nF}$ focado na supressão de ruídos de alta frequência induzidos pelos motores CC dos servos, completando a barreira de proteção eletromagnética do sistema embarcado \cite{electromagnetic_compatibility_engineering}.
+
+Com a arquitetura idealizada, realizou-se a adição dos componentes ao esquemático da placa de circuito, conforme Imagem \ref{fig:power_scheme}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/power_scheme.png}
+    \caption{Esquemático da Arquitetura de Alimentação} \label{fig:power_scheme}
+\end{figure}
+
+O desenho da arquitetura de alimentação marca o fim do processo de dimensionamento e escolha dos componentes eletrônicos. O esquemático apresentado é organizado de forma que facilite a leitura das conexões, mas não representa a disposição física dos componentes, nem o caminho exato das trilhas. Estas são funções do desenho da placa de circuito impresso (PCB), que procede o esquemático.
+
+\section{Placa de Circuito Impresso}
+Um dos maiores desafios no processo de fabricação de um sistema embarcado é a montagem do hardware. Existem algumas abordagens para esta etapa, podendo ser feita com placas de prototipagem (\textit{protoboards}), com placas cobreadas caseiras --como as placas de fenolite ou fibra de vidro laminadas com cobre--, ou ainda através da fabricação sob demanda em empresas especializadas em PCB.
+
+Visto que o sistema irá ser embarcado em um VANT, a montagem em \textit{protoboards} está descartada. Para este projeto, será usado uma placa de fenolite duplamente cobreada, viabilizando vias nas duas faces da placa. Esta técnica é viável para produção caseira, mas exige cuidados no processo de desenho da PCB.
+
+Os componentes podem ser adquiridos em dois níveis, conhecidos como \textit{Surface Mount Technology} (SMD) e \textit{Through Hole Technology} (THT). Placas feitas com SMD são mais compactas e com acabamento mais profissional, porém exigem a busca por distribuidores especializados que costumam vender apenas em grande quantidade. Além disso, a fabricação e manipulação de componentes SMT exigem ferramentas de precisão e prática especializada, que dificultaria e atrasaria o desenvolvimento do projeto.
+
+Os componentes THT ocupam mais espaço e vêm prontos pra uso. Estes são mais fáceis de ter acesso e mais baratos em pequena quantidade. Além disso, a fabricação é facilitada pelos pinos que aumentam a área de contato para aplicação de estanho no processo de soldagem. Dessa forma, os componentes utilizados para este trabalho serão todos THT, valorizando a facilidade de montagem e manutenção do sistema. 
+
+\subsection{Posicionamento dos Componentes}
+Como primeiro passo para o desenho da PCB, o posicionamento dos componentes foi realizado. Para faciltar o caminho das trilhas, cada subsistema foi alocado em um espaço da placa com o cuidado de manter os limites dentro da margem do requisito RNF.03. A disposição está representada na Imagem \ref{fig:pcb_componentes}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/pcb_componentes.png}
+    \caption{Posicionamento dos Componentes na PCB} \label{fig:pcb_componentes}
+\end{figure}
+
+Com isso, o sistema de alimentação se concentrou ao lado esquerdo superior da face de cima da placa, com os capacitores de $100 nf$ posicionados próximo à entrada de cada componente. A entrada do PWM foi posicionada na extremidade para que o fio de acesso ao receptor comece para fora da placa. Já o SX1276 foi rotacionado de forma que sua antena fique na extremidade para facilitar a sua exposição no compartimento da aeronave.
+
+Os sensores, ficaram ao lado contrário do sistema de alimentação para afastá-los das vias ruidosas de entrada.Em específico, o GPS foi alocado na extremidade superior direita para facilitar a integração da antena externa. Por fim, para garantir trilhas mais covenientes, o microcontrolador foi posicionado ao centro com o lado da entrada USB-C apontada para fora.
+
+\subsection{Dimensionamento das Trilhas}
+Antes de começar o desenho das trilha é importante determinar regras para garantir segurança no processo de manufatura, visto que será um processo manual. Dessa forma, determinou-se um padrão de $1 mm$ para todas as trilhas de informação e $1.8 mm$ para trilhas de alimentação. Além disso, para evitar contato entre trilhas determinou-se uma distância mínima de $0.6 mm$ entre qualquer trilha ou \textit{pad}. A partir destas regras, contruío-se as trilhas conforme Imagem \ref{fig:trilhas_pcb}, onde as trilhas vermelhas estão na face superior, e as trilhas azuis na face inferior.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/trilhas_pcb.png}
+    \caption{Disposição das Trilhas na PCB} \label{fig:trilhas_pcb}
+\end{figure}
+
+A maior parte das trilhas de informação foram posicionadas na face superior para que a face inferior fosse dedicada à zona preenchida e trilhas de alimentação. Além disso, aplicou-se o eforço de evitar trilhas com vias entre faces, ou seja, trilhas que usem as duas faces no mesmo percurso, diminuindo a complexidade construtiva da placa.
+
+\subsection{Zona Preenchida (GND)}
+Um prática comum em PCBs é a adição de uma zona preenchida para o GND. Esta estratégia cria um caminho de menor impedância para que a corrente retorne dos componentes, ajuda a proteger os sinais sensíveis de interferências eletromagnéticas, minimiza quedas de tensão, auxilia na distribuição de energia estável para todo o circuito, e ainda, reduz a quantidade de produto corrosivo no processo de corrosão da placa \cite{zona_preenchida}. Por isso, conforme Imagem \ref{fig:zona_gnd}, criou-se uma zona preenchida para o GND na face inferior da placa.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/zona_gnd.png}
+    \caption{PCB com GND em Zona Preenchida} \label{fig:zona_gnd}
+\end{figure}
+
+Com isso, o desenho da PCB foi finalizado e enviado para impressão UV na placa de fenolite cobreada. Como forma de validação, conforme Imagem \ref{fig:pcb_a4} o circuito foi impresso em uma folha A4 para que os módulos pudessem ser fisicamente posicionados, validando a coerência do desenho com os componentes reais.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/pcb_a4.jpg}
+    \caption{Validação do Posicionamento da PCB em Folha A4} \label{fig:pcb_a4}
+\end{figure}
+
+\section{\textit{Firmware}}
+Para a implementação do \textit{Firmware} foram consideradas três vias de ferramentas. A primeira opção seria com programação \textit{bare-metal}, onde nenhuma camada de abstração externa é adicionada para dar total liberdade à implementação em baixíssimo nível de abstração \cite{software_embarcado}. Uma segunda alternativa é o uso de sistemas operacionais de tempo real (RTOS), que adicionam uma camada mínima para abstração de escalonamento de tarefas e gerenciamento de suas prioridades \cite{RTOS}. A última alternativa considerada foi a implementação através do framework do Arduino, que conta com suporte para ESP32 e junta diversas contribuições da comunidade, facilidade que vem em troca de performance e limitações arquiteturais. As vantagens e desvantagens de cada opção estão listadas na tabela \ref{tab:firmware_framework}.
+
+TABELA
+
+Além disso, o ESP-IDF é um RTOS consolidado na comunidade de desenvolvedores para ESP32, o que garante um ótimo material e robustez na ferramenta. A facilidade de implementação no Arduino Framework não compensa as limitações estabelecidas, o que atua como principal critério para eliminação desta possibilidade. Quanto ao \textit{bare-metal} há vantagens de performance, mas que não são tão promissoras em relação ao ESP-IDF, que também atua em baixo nível de abstração. 
+
+Para um microcontrolador com dois núcleos há evidentes vantagens em usar das camadas de abstração para gerenciamento de tarefas de um sistema RTOS. Essa abordagem abre caminhos para um detalhado gerenciamento de acesso aos núcleos do ESP32, que servirá como principal estratégia para conciliar as diferentes taxas de frequência dos sensores e comunicadores.
+
+\subsection{Arquitetura}
+Visando organizar o sistema de forma a simplificar o processo de adição e/ou modificações de sensores, buscou-se arquiteturas que valorizem inversão de dependência, isolando a regra de negócio das especificidades de cada componente. Para isso, uma opção com grande potencial é a arquitetura hexagonal --também conhecida como arquitetura \textit{ports and adapters}, que se divide em três partes principais: \textit{domain}, \textit{ports} e \textit{adapters} \cite{arquitetura_hexagonal}.
+
+Nesta arquitetura, o \textit{domain} será uma camada de lógica de negócios, agnóstica a técnologias. Ou seja, será uma camada para implementação em C++ puro que não conhecerá quais serão os componentes de hardware. Para que o \textit{domain} se comunique com as tecnologias externas, as \textit{ports} servirão de camada de abstração, fornecendo interfaces com os contratos que o \textit{domain} sabe usar. Por fim, os \textit{adapters} serão os componentes externos à camada central e implementarão as interfaces das \textit{ports} seguindo as especificações de cada hardware, sejam estes sensores, comunicadores ou o próprio microcontrolador. A distribuição das camadas está descrita de forma visual no diagrama da Imagem \ref{fig:diagrama_hexagonal}.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=1.0\textwidth]{images/aircraft_crow_architecture.png}
+    \caption{Diagrama de Arquitetura do \textit{Aircraft Crow}} \label{fig:diagrama_hexagonal}
+\end{figure}
+
+Com isso, a arquitetura servirá não apenas de guia, mas também como rigor de projeto que deve ser respeitado para manter a manutenabilidade e escalabilidade do sistema.
+
+\subsection{Camada \textit{Domain}}
+A camada de domínio atua como o núcleo lógico do sistema embarcado, isolando as regras de negócio das especificidades de hardware e do sistema operacional. Por isso, a implementação do domínio é feita em C++ puro, isenta de acoplamentos com o framework ESP-IDF ou com as bibliotecas do FreeRTOS. A comunicação com os periféricos é resolvida por meio da inversão de dependência [Clean Architecture, Robert C. Martin], onde contratos de interface (\textit{ports}) são definidos internamente, delegando a responsabilidade de execução do baixo nível aos adaptadores.
+
+No núcleo do domínio implementou-se os fluxos principais do sistema, o gerenciamento da máquina de estado e as estruturas de tráfego dos dados. Os componentes system\_state.hpp e telemetry\_dto.hpp são preenchidos com \textit{structs} que servem de contrato para que todo o firmware se comunique consistentemente. Enquanto o telemetry\_orchestrator.hpp apresenta uma classe responsável por gerenciar o fluxo de dados.
+
+Para cumprir a função de gerenciar a máquina de estado, o orquestrador deve seguir estritamente o diagrama de transição de estado da Imagem \ref{fig:diagrama_estados}. Por isso, todo comando capturado na porta \textit{port\_pilot\_receiver} passa por uma estrutura condicional que garante consistência do sistema. Observe que, por exemplo, ao entrar no estado de erro, o sistema deve ser reiniciado, visto que este é um estado de "morte" e exige inspeção no hardware.
+
+\begin{figure}[ht]
+    \centering
+    \caption{Diagrama de Transição de Estados.} 
+    \label{fig:diagrama_estados}
+    \includegraphics[width=1\textwidth]{images/diagrama_estados.png}
+    \footnotesize Fonte: Autoria própria, 2026.
+\end{figure}
+
+Já para a gestão de tráfego dos dados, o orquestrador dita o fluxo dos \textit{Data Transfer Objects (DTOs)}, onde os dados irão dos sensores para camada de telemetria de forma padronizada. Aqui surge o desafio de criar uma estrutura de dados que recebe informações com tipos e tamanhos diferentes, visto que, por exemplo, o dado de giroscópio difere bastante em tamanho e quantidade de valores do output produzido pelo GPS. Como solução, utilizou-se de um \textit{Union} entre structs específicos para cada dado esperado pelo domínio que servirá de pacote genérico, conforme o trecho na Figura \ref{fig:DTOs_code}.
+
+\begin{figure}[ht]
+    \centering
+    \caption{Definição dos DTOs.}
+    \label{fig:DTOs_code}
+    \includegraphics[width=0.7\textwidth]{images/dto_code.png}\\
+    \footnotesize Fonte: Autoria própria, 2026.
+\end{figure}
+
+Por fim, a camada de domínio também comporta as portas de abstração dos recursos externos. Essas portas, definidas como classes do tipo interface, são utilizadas pelo orquestrador e implementadas na camada de adaptadores. Dessa forma, se algum componente externo mudar, nada muda para o domínio. Neste sistema temos as portas \textit{IPilotReceiver}, \textit{ISensor}, \textit{ISystemIndicator} e \textit{ITelemetrySender}.
+
+\subsection{Comunicação com piloto}
+A comunicação com o operador está abstraída nas portas \textit{IPilotReceiver} e \textit{ISystemIndicator}. Portanto, o próximo passo se resume à implementação do hardware que vai executar essa comunicação. Para o comando PWM do rádio-receptor, o \textit{pwm\_task} se tornou o componente que implementa a leitura dos pulsos.
+
+Como o ESP32 não possui captura de input em hardware nativamente, adotou-se o método para registro de tempo \textit{esp\_timer\_get\_time()} via interrupção de GPIO. Esta estratégia tem uma margem de erro na casa de alguns microssegundos, portanto, para garantir que o sinal não flutue entre os dois estados devido ao ruído de RF no receptor, adotou-se uma zona morta explícita. Pulsos acima de $1600µs$ ativam a gravação, pulsos abaixo de $1400µs$ param a gravação, e qualquer valor no meio é ignorado, mantendo o último estado.
+
+No rádio-controle do piloto, o comando foi ajustado para ocilar entre $1000µs$ e $2000µs$ em seu mínimo e máximo, respectivamente. A chave associado foi um comando na parte superior, normalmente acessível com o dedo indicador da mão esquerda, conforme Imagem \ref{fig:radio-controle}.
+
+
+\subsection{Leitura dos sensores}
+Para os sensores, as implementações passam a ser bem mais complexas com baixo nível de abstração. Cada sensor usa um algoritmo serial para enviar seus dados pelos fios conectados ao GPIO do ESP32. Neste caso temos o MS5611 e ICM-20948 usando o protocolo \textit{Inter-Integrated Circuit} (I2C) \cite{MS5611_datasheet} \cite{ICM-20948_datasheet}, e o NEO-M8N usando o \textit{Universal Asynchronous Receiver-Transmitter} (UART) \cite{NEO-M8N}.
+
+O protocolo I2C permite que os sensores compartilhem o barramento de comunicação com o microcontrolador, o que é vantajoso em termos de redução de complexidade do hardware, mas requer um gerenciamento cuidadoso no firmware \cite{serial_protocols}. Para que o microcontrolador saiba quem é o dono do dado, cada sensor precisa fornecer um ID, que costuma ter valores padrões controlados por resistores de \textit{pull-up} ou \textit{pull-down} \cite{ICM-20948_datasheet}. Trazendo um melhor gerenciamento desse barramento compartilhado, cirou-se uma camada de abstração de hardware com a classe \textit{I2cBusManager}.
+
+\subsubsection{ICM-20948}
+A leitura da Unidade de Medição Inercial (IMU), implementada pelo módulo ICM-20948, opera através do protocolo I2C, comunicando-se primariamente pelo endereço 0x68 e configurando um bypass de barramento, via registrador 0x0F, para permitir o acesso direto ao magnetômetro auxiliar AK09916 no endereço 0x0C. 
+
+A parametrização inicial manipula registradores de seleção de banco de memória para definir os limites operacionais estritos exigidos pelo domínio do problema: o giroscópio é ajustado para atuar no fundo de escala de ±250 graus por segundo (dps) e o acelerômetro em ±4g, com ambos ativando o filtro digital passa-baixa (DLPF) embarcado em hardware, enquanto o magnetômetro é alocado no modo de leitura contínua a 100 Hz.
+
+A extração das informações obedece a uma rotina de burst read, requisitando 12 bytes sequenciais do registrador de dados do acelerômetro e 7 bytes do magnetômetro a cada ciclo do escalonador. Como tratamento de dados na ponta, o firmware aplica a subtração de um bias estático, computado em uma fase prévia de calibração de 100 amostras — onde o eixo Z já compensa intrinsecamente a aceleração da gravidade (1G) —, e submete os resultados em ponto flutuante a uma quantização por multiplicação decimal para o tipo numérico inteiro de 16 bits, preservando as escalas exigidas e mitigando o custo de empacotamento na camada de transporte.
+
+\subsubsection{MS5611}
+O barômetro MS5611, empregado para a derivação da altitude, compartilha o barramento I2C operando no endereço 0x77. Sua rotina de configuração consiste em manipulação de registradores de limite, apoiando-se no envio de comandos de reset e na leitura sequencial de seis coeficientes de calibração de fábrica gravados permanentemente na memória PROM do sensor. 
+
+Para as aquisições, o microcontrolador emite comandos intercalados de conversão analógico-digital para pressão (D1) e temperatura (D2) setados na resolução máxima com taxa de sobreamostragem de 4096, operação que impõe um tempo de espera obrigatório de aproximadamente 10 ms de restrição física do ADC interno antes que os 3 bytes de dados fiquem disponíveis para leitura. 
+
+O tratamento dessas medições requer a aplicação de um equacionamento polinomial de compensação de temperatura de segunda ordem, alimentado pelos coeficientes da PROM, para derivar o valor real de pressão atmosférica em Pascal. Posteriormente, a pressão resultante é submetida a um filtro digital de média móvel exponencial (EMA) com constante de suavização estabelecida em $0.2$, focado na supressão de ruídos transitórios causados pelo vento em voo, permitindo o isolamento do delta de pressão em relação à medição basal capturada no solo.
+
+\subsubsection{NEO-M8N}
+Por fim, a extração dos parâmetros cinemáticos via receptor GNSS NEO-M8N é regida pelo UART em uma taxa padrão de 9600 bps. Em vez de utilizar registradores puros, a configuração demanda a escrita de um pacote estruturado em protocolo UBX (UBX-CFG-NAV5) visando reparametrizar o modelo dinâmico interno do equipamento para a classificação "Airborne < 4G", que afrouxa os filtros de correlação do satélite para acomodar acelerações repentinas típicas de veículos não tripulados. 
+
+Respeitando o limite de atualização do sensor (situado entre 5 Hz e 10 Hz), a rotina de leitura avalia de forma contínua o buffer de RX, montando linhas de caracteres até a detecção de quebra de linha e validando imediatamente sua integridade por meio de um cálculo de checksum, implementado como uma operação XOR sobre o conteúdo útil da mensagem. 
+
+Quando as sentenças NMEA de interesse (GNGGA e GPRMC) são validadas, seus tokens separados por vírgula passam por processos de adaptação: as coordenadas sexagesimais (graus e minutos) são planificadas para o formato decimal e inflacionadas por um fator de 107 para garantir resolução centimétrica em variáveis de 32 bits, a velocidade de solo é equacionada de nós para metros por segundo, e a carga útil inteira é precocemente descartada caso o módulo sinalize a perda de sincronismo.
+
+\subsection{Quantização}
+A transmissão de dados analíticos sobre canais de radiofrequência sub-GHz, operando sob a modulação de espalhamento espectral selecionada para este projeto, impõe severas restrições à largura de banda. Para satisfazer às demandas de baixa latência e contínua taxa de atualização sem comprometer a integridade do enlace, exige-se uma minimização do \textit{payload} dos pacotes de telemetria. 
+
+Para dados contínuos, as leituras brutas provenientes dos sensores são rotineiramente mantidas no tipo primitivo de ponto flutuante, que apesar de prover uma vasta faixa dinâmica e alta resolução fracionária, a execução de operações matemáticas sobre variáveis em ponto flutuante acarreta um maior custo computacional em relação à aritmética de inteiros, somando-se ao fato de que a alocação de 32 bits por variável demonstra-se ineficiente em cenários com restrições de hardware e rede.
+
+Diante desta problemática, aplicou-se a técnica de quantização nos componentes de telemetria \cite{quantizacao}. O método consiste na conversão das variáveis de ponto flutuante em tipos inteiros de tamanho fixo (int16\_t, int32\_t e uint16\_t). Para evitar a perda das grandezas decimais, promove-se o escalonamento matemático, multiplicando os valores por potências de base 10.
+
+No subsistema inercial e barométrico, a quantização reduz substancialmente o consumo do barramento. As acelerações lineares e a atitude, por exemplo, são comprimidas para 16 bits. Para cumprir os requisitos RNF.03 e RNF.04, assumiu-se um fator multiplicativo de 1000 sobre os dados brutos de aceleração e velocidade angular, estabelecendo uma precisão efetiva de $0,001m/s2$ e $0,001°/s$ restrita a um teto operacional de $±32,767m/s2$ e $±32,767°/s$. 
+
+Para os dados geodésicos extraídos do receptor GNSS, a quantização atua, primordialmente, como um mecanismo de supressão do erro de aproximação estrutural (floating-point drift). A codificação de latitude e longitude em variáveis float simples (32 bits) culmina na perda de algarismos significativos, resultando em um erro posicional superior a 1 metro. Ao alocar as coordenadas como inteiros com sinal de 32 bits (\textit{int32\_t}), multiplicados pelo fator de 107, assegura-se uma precisão referencial na ordem de centímetros ($10^{-7}$ graus). Adicionalmente, vetores limitados ao domínio estritamente positivo, como a altitude (MSL) e a velocidade de solo georreferenciada, foram adequados em inteiros de 16 bits sem sinal (\textit{uint16\_t}), garantindo que o arranjo de bits remanescente dobre o raio da amplitude superior da variável, possibilitando o registro de até $6553,5m$ de teto altimétrico.
+
+\begin{table}[h]
+\centering
+\caption{Comparativo de Tamanho, Precisão e Faixa Dinâmica entre Ponto Flutuante e Quantização}
+\label{tab:comparativo_quantizacao}
+  \begin{tabular}{llccl}
+    \hline
+    \textbf{Variável de Voo} & \textbf{Formato Primitivo} & \textbf{Tamanho} & \textbf{Precisão} & \textbf{Range Máximo} \\ \hline
+    Aceleração Linear & Não-Quantizado & 4 bytes & $\sim 7$ dígitos dec. & $\pm 3.4 \times 10^{38} \, \text{m/s}^2$ \\
+    & Quantizado & 2 bytes & $0,01 \, \text{m/s}^2$ & $\pm 327,67 \, \text{m/s}^2$ \\ \hline
+    Velocidade Angular & Não-Quantizado & 4 bytes & $\sim 7$ dígitos dec. & $\pm 3.4 \times 10^{38} \, ^\circ\text{/s}$ \\
+    & Quantizado & 2 bytes & $0,1 \, ^\circ\text{/s}$ & $\pm 3276,7 \, ^\circ\text{/s}$ \\ \hline
+    Coordenadas GPS & Não-Quantizado & 4 bytes & $\sim 1,1 \, \text{m}$ & $\pm 90^\circ$ / $\pm 180^\circ$ \\
+    & Quantizado & 4 bytes & $10^{-7}$ ($^\circ$) & $\pm 214,7^\circ$ \\ \hline
+    Altitude (MSL) & Não-Quantizado & 4 bytes & $\sim 7$ dígitos dec. & $\pm 3.4 \times 10^{38} \, \text{m}$ \\
+    & Quantizado & 2 bytes & $0,1 \, \text{m}$ & $0$ a $6553,5 \, \text{m}$ \\ \hline
+  \end{tabular}
+\end{table}
+
+\subsection{Transmissão das leituras}
+A transmissão dos pacotes de telemetria é gerenciada por uma rotina dedicada, estruturada sob a classe LoRaTask, que atua como implementadora da interface abstrata ITelemetrySender. Para garantir que as rotinas críticas de amostragem dos sensores e o processamento de domínio não sejam bloqueados pela latência do rádio, a arquitetura emprega uma fila de mensagens assíncrona gerida pelo sistema operacional de tempo real (FreeRTOS). Esta tarefa opera fixada no Core 1 do microcontrolador e permanece em estado ocioso até a recepção de um objeto de transferência de dados (TelemetryDTO), momento em que aciona a serialização do pacote para a estruturação de \textit{frames} no protocolo MAVLink e delega o encargo físico à camada inferior de abstração.
+
+A comunicação de baixo nível com o transceptor SX1276 motivou a construção de um \textit{driver} proprietário, cuja necessidade reside no isolamento da lógica do barramento SPI (operante a 8 MHz) e no controle rigoroso dos tempos de resposta do \textit{hardware}. A inicialização do rádio demanda a escrita sequencial em registradores específicos de configuração: o registrador de modo (REG\_OP\_MODE) é ajustado para habilitar o espectro de longo alcance (LoRa), a tríade de registradores de frequência (REG\_FRF\_MSB) é submetida ao valor hexadecimal 0xE4C000 para cravar a sintonia na faixa não licenciada de 915 MHz, e o controle de amplificação (REG\_PA\_CONFIG) é setado para 0x8F, roteando a saída para o estágio PA\_BOOST com o intuito de atingir a potência máxima permitida de transmissão.
+
+Durante o ciclo ativo de envio, o \textit{driver} comanda o transceptor para o modo de espera (\textit{standby}), reseta os ponteiros de base do \textit{buffer} interno (REG\_FIFO\_ADDR\_PTR e REG\_FIFO\_TX\_BASE\_ADDR) e transfere a carga útil serializada em formato de rajada (\textit{burst}) para o módulo. Visando preservar ciclos de processamento e evitar laços de espera ativa (\textit{polling}), o sistema configura o registrador REG\_DIO\_MAPPING\_1 para mapear a conclusão do envio (\textit{TxDone}) diretamente no pino de interrupção física DIO0. Ao finalizar a modulação no ar, o rádio dispara essa interrupção de \textit{hardware}, que é prontamente capturada por uma rotina alocada em memória de acesso rápido (IRAM). Essa rotina, por sua vez, concede um semáforo binário que desperta a tarefa de transmissão, informando ao sistema que o canal se encontra livre para o próximo ciclo analítico.
+
+\section{Protótipo}
+Ao decorrer das implementações, dois protótipos foram construídos. O primeiro, foi um protótipo conceitual com componentes eletrônicos disponíveis em laboratório para realizar uma prova de conceito (PoC). Este contava com os componentes: ESP32, SX1276, buzzer, interface PWM, leitor de cartão SD para \textit{log}, e um MPU6050 como único módulo de sensoriamento, entregando apenas aceleração linear e velocidade angular. O segundo protótipo foi o hardware refinado com a PCB e componentes conforme definidos no trabalho.
+
+\subsection{Fabricação dos protótipos}
+O protótipo de PoC foi construído em uma placa perfurada com trilhas em fios soldados entre os pinos, conforme Imagem \ref{fig:prototipo_poc}. Nesta fase do projeto, o sistema transmitia os dados a um middleware mínimo que apenas informava a chegada dos pacotes. 
+
+Já o protótipo refinado teve um processo de construção cuidadoso e com resultado mais estável em relação ao anterior. Para a PCB utilizou-se uma placa de fenolite cobreada corroída com percloreto de ferro através do método artesanal de fabricação de PCBs \cite{newton_braga}. Na Imagem \ref{fig:fabricacao_pcb} estão os passos para a construção da placa.
+
+\begin{figure}[ht]
+    \centering
+    \caption{Passos de fabricação da PCB}
+    \label{fig:fabricacao_pcb}
+    \includegraphics[width=1\textwidth]{images/fabricacao_pcb.png}\\
+    \footnotesize Fonte: Autoria própria, 2026.
+\end{figure}
+
+A construção do protótipo marcou o fim do processo de fabricação do hardware embarcado, viabilizando a fase de testes em bancada para validação do sistema embarcado completo.
+
+\subsection{Meotodologias de testes \textit{Hardware-in-the-loop}}
+Enquanto os protótipos estavam sendo construídos e os componentes eletrônicos estavam em caminho de entrega, realizou-se testes com técnicas baseadas em Hardware-in-the-loop (HIL), onde um componente de hardware externo simula o comportamento do ambiente que o sistema irá interpretar \cite{hardware-in-the-loop}. O principal objetivo foi de validar o comportamento do sistema antes do acesso aos componentes.
+
+A viabilidade desta metodologia foi assegurada pelo emprego da arquitetura hexagonal no firmware, que permite a injeção de dependências e a substituição das portas lógicas de hardware por adaptadores emulados (\textit{mocks}). Para a comunicação com o ambiente externo, implementou-se adaptadores de produção (ProducerUartHilTask) e consumo (ConsumerUartHilTask) no microcontrolador, projetados para trafegar dados estruturados através da interface serial (USB UART). No ambiente de simulação, um computador \textit{host}, scripts desenvolvidos em Python assumiram os papéis de emuladores: o data\_injector.py atua como gerador estocástico de perfis de voo, injetando pacotes no formato CSV, enquanto o data\_consumer.py atua como plataforma de aquisição e plotagem gráfica das respostas do sistema.
+
+A execução dos ensaios HIL ocorreu sob duas variações de configuração topológica para isolar diferentes camadas do sistema. Na primeira rotina de testes, configurou-se o microcontrolador para operar com ambos os adaptadores simulados (produtor e consumidor). O computador injetava as grandezas cinemáticas e os comandos de transição de estado, que eram decodificados pela camada de adaptador e encapsulados como Objetos de Transferência de Dados (DTOs) para a camada de domínio. Após o processamento assíncrono pelo orquestrador, os dados eram retransmitidos ao computador pela porta de consumo. Este cenário isolou o core da aplicação, validando estritamente a consistência da máquina de estados finita e a integridade do fluxo lógico interno da arquitetura hexagonal.
+
+Na segunda variação, a simulação foi restrita aos sensores. O adaptador de produção continuou a injetar os perfis de voo sintetizados no domínio, contudo, a saída de dados foi redirecionada para a \textit{LoRaTask}, rotina de transmissão real em radiofrequência. Para capturar esses dados, configurou-se uma estação receptora em solo conectada ao computador host, onde o script data\_consumer.py passou a atuar como monitor serial exclusivo desta segunda placa. Essa abordagem avaliou a interoperabilidade entre o domínio de software e a camada física de comunicação. O teste garantiu a validação da serialização dos pacotes pelo protocolo MAVLink e atestou a estabilidade temporal do driver SPI na interface com o transceptor LoRa sob condições de carga contínua, homologando o fluxo de transmissão de ponta a ponta.
+
+Dessa forma, o sistema embarcado foi considerado pronto e validado para captura dos resultados relativos a este componente.

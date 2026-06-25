@@ -1,0 +1,58 @@
+\chapter{Embasamento Teórico}
+\label{cap:embasamento-teorico}
+O desenvolvimento de um sistema de telemetria distribuído para ensaios em voo de Veículos Aéreos Não Tripulados (VANTs) pressupõe o domínio de conceitos estruturais de sistemas computacionais e telecomunicações. A instrumentação embarcada atua sob limitações físicas e energéticas inerentes à operação aeronáutica, fatores que condicionam diretamente as decisões de projeto de hardware e software. Desta forma, o embasamento teórico fornece a fundamentação técnica necessária para balizar e justificar as escolhas de padrões arquiteturais, protocolos de comunicação, gerenciamento de processamento em tempo real e técnicas de otimização de dados aplicadas na concepção da solução.
+
+\section{Restrições em Sistemas Embarcados Aeronáuticos}
+A instrumentação de Veículos Aéreos Não Tripulados (VANTs) é limitada pelas características físicas e operacionais da aeronave. Ao contrário de plataformas terrestres estáticas, o projeto de hardware aeronáutico é regido pelo critério SWaP (Size, Weight, and Power), que atua como o principal fator de decisão para a viabilidade e integração de sistemas eletrônicos embarcados \cite{raymer_aircraft_design}.
+
+A dimensão e a massa dos componentes afetam o centro de gravidade, a estabilidade e a capacidade de carga útil da plataforma. Essa restrição exige a minimização da área ocupada pela placa de circuito impresso (PCB) e a seleção de componentes com alto nível de integração. Do ponto de vista energético, a fonte de alimentação do sistema de aquisição frequentemente compartilha as baterias do sistema de controle da aeronave. O acionamento de atuadores mecânicos, somado ao uso de microcontroladores de duplo núcleo e módulos de radiofrequência de longo alcance, gera picos de corrente e ruído conduzido no barramento. Para manter a estabilidade térmica e elétrica sob essas condições limitantes, o projeto de distribuição de potência requer topologias de alimentação isoladas, como a arquitetura Dual-Rail, que separa a alimentação sensível dos sensores das cargas com alta demanda transiente \cite{uav_swap_telemetry}.
+
+\section{Arquitetura de Software e Sistemas Distribuídos}
+
+A integração de sistemas heterogêneos, que operam desde a coleta de dados embarcada até a visualização analítica na estação em solo, exige a adoção de padrões arquiteturais rigorosos. A estruturação lógica do \textit{software} deve garantir o baixo acoplamento entre componentes isolados, assegurando consistência na troca de informações e escalabilidade para a adição de novas fontes de dados.
+
+\section{Sistemas Distribuídos e \textit{Middleware}}
+
+Em cenários onde múltiplos nós autônomos produzem e consomem dados de forma assíncrona, a coordenação das ações ocorre fundamentalmente pela troca de mensagens sobre uma rede de comunicação \cite{coulouris_distributed}. Devido à heterogeneidade dos protocolos físicos e estruturas de pacotes gerados pelos módulos produtores, introduz-se a camada de \textit{middleware}. Este componente atua como um integrador intermediário projetado para abstrair as especificidades de \textit{hardware} e as conexões de baixo nível. Sua função restringe-se a capturar, padronizar e rotear o tráfego de dados para a aplicação cliente, unificando o fluxo de informações no sistema \cite{coulouris_distributed}.
+
+\subsection{Arquitetura Hexagonal (\textit{Ports and Adapters})}
+
+No desenvolvimento tradicional de \textit{firmware}, é comum a ocorrência de acoplamento severo entre as regras lógicas de operação e os registradores específicos do \textit{hardware}. Para mitigar esse problema, aplica-se a Arquitetura Hexagonal, ou \textit{Ports and Adapters}, cujo princípio central é a inversão de dependência \cite{martin_clean_architecture}. O núcleo lógico da aplicação (domínio) é totalmente isolado de agentes externos. A comunicação com o microcontrolador, sensores e módulos de comunicação ocorre exclusivamente por meio de contratos formais (portas), que são implementados na periferia do sistema por bibliotecas específicas (adaptadores) \cite{martin_clean_architecture}. Além de garantir a modularidade, esta topologia viabiliza metodologias de teste como \textit{Hardware-in-the-loop} (HIL), permitindo a validação do domínio lógico mediante a injeção de adaptadores de \textit{software} emulados em substituição ao \textit{hardware} físico.
+
+\subsection{Padrão \textit{Model-View-Controller} (MVC)}
+
+Na estação de controle em solo, a recepção de fluxos contínuos de telemetria concorre diretamente com as demandas de renderização gráfica. Se as rotinas bloqueantes de entrada e saída (I/O) de rede forem executadas na mesma \textit{thread} de atualização da interface, o acúmulo de processamento induzirá latência e consequente descarte de pacotes no \textit{buffer} do sistema operacional. O padrão \textit{Model-View-Controller} (MVC) isola matematicamente essas responsabilidades \cite{fowler_eaa}. O \textit{Model} concentra a lógica de negócios, a aquisição via rede e o armazenamento em memória; a \textit{View} restringe-se à renderização passiva de matrizes geométricas na tela; e o \textit{Controller} atua como orquestrador de eventos assíncronos, transferindo cópias seguras de dados do modelo para a interface em uma taxa de atualização controlada \cite{fowler_eaa}.
+
+\section{Telecomunicações e Protocolos de Rede}
+
+A comunicação de dados entre uma aeronave em movimento e uma estação terrestre exige o contorno de atenuações de sinal e ruídos presentes no canal de rádio. A escolha das tecnologias da camada física e de transporte determina a resiliência e a latência do tráfego de telemetria no sistema distribuído.
+
+\subsection{Modulação LoRa e o Teorema de Shannon-Hartley}
+
+O Teorema de Shannon-Hartley estabelece a capacidade máxima teórica de transmissão de um canal em função da sua largura de banda e da relação sinal-ruído (SNR) disponível. Em ensaios em voo, o afastamento radial da aeronave em relação à estação base degrada rapidamente a potência do sinal recebido, reduzindo drasticamente a SNR. Para manter a integridade da comunicação sob estas condições, aplica-se a técnica de espalhamento espectral (\textit{Spread Spectrum}), que compensa a deficiência de potência ampliando a largura de banda ocupada pela transmissão \cite{haykin_communication}.
+
+A modulação LoRa, operante em bandas Sub-GHz (como a faixa não licenciada de 915 MHz), utiliza este princípio físico. A escolha por frequências mais baixas prioriza a capacidade de penetração de sinal e o alcance em linha de visada (BVLOS), sacrificando em contrapartida a taxa máxima de transferência de dados (\textit{bit rate}) quando comparada a protocolos de 2,4 GHz, como Wi-Fi ou módulos convencionais de curto alcance \cite{lora_uav_performance}.
+
+\subsection{O Protocolo MAVLink}
+
+Na camada lógica de rede, a estruturação dos dados afeta diretamente o consumo da banda de radiofrequência. Protocolos genéricos de Internet das Coisas (IoT), como o MQTT, operam sobre conexões TCP e frequentemente utilizam serialização baseada em texto (como JSON), gerando um \textit{overhead} insustentável para enlaces Sub-GHz. Em paralelo, protocolos como o LoRaWAN impõem topologias de rede complexas e limitações de ciclo de trabalho (\textit{duty cycle}) que introduzem alta latência.
+
+Para telemetria contínua, o protocolo MAVLink fornece um mecanismo de empacotamento estritamente binário, leve e com comportamento de roteamento análogo ao UDP (\textit{User Datagram Protocol}), permitindo o envio rápido de mensagens sem a necessidade de estabelecimento prévio de conexão (\textit{handshake}) \cite{mavlink_dev_guide}. O protocolo opera em um modelo de publicação e assinatura nativo, baseando-se em identificadores de sistema (\textit{System ID}) e componente (\textit{Component ID}) para rotear os pacotes. Em sua estrutura, garante a verificação de integridade através de \textit{checksums} de redundância em seu cabeçalho, com a versão mais recente (v2) suportando a alocação de assinaturas de validação sem comprometer significativamente o tamanho do pacote \cite{mavlink_dev_guide}.
+
+\section{Sistemas Embarcados e Tempo Real}
+
+O gerenciamento de dados de sensores e o controle de dispositivos de comunicação requerem uma arquitetura de \textit{firmware} capaz de atender a múltiplos eventos de forma determinística, sem perda de amostras ou latências excessivas na resposta de \textit{hardware}.
+
+\subsection{Microcontroladores e Barramentos de Comunicação}
+
+A seleção da unidade de processamento baseia-se na capacidade de gerenciar periféricos síncronos e assíncronos sob condições de alta carga de dados. O emprego de microcontroladores modernos, como as arquiteturas \textit{dual-core} (ex: ESP32) ou baseadas em núcleos ARM Cortex-M (ex: STM32), permite o isolamento de tarefas computacionalmente distintas, alocando o processamento de baixo nível e a leitura de sensores em barramentos I2C ou SPI em núcleos dedicados, enquanto o gerenciamento da lógica de estado é executado paralelamente \cite{white_embedded_systems}. O barramento I2C, embora permita a redução da complexidade de \textit{hardware} ao compartilhar pinos entre múltiplos sensores, exige mecanismos robustos de tratamento de exceções no \textit{firmware} para evitar travamentos decorrentes de falhas de sincronismo ou ruído no silício \cite{st_stm32_bus_manual}.
+
+\subsection{Sistemas Operacionais de Tempo Real (RTOS)}
+
+A complexidade da orquestração de tarefas assíncronas — como o monitoramento da telemetria, a leitura de IMUs e a resposta a comandos do piloto — inviabiliza a abordagem \textit{bare-metal} tradicional em sistemas de maior porte. A adoção de um Sistema Operacional de Tempo Real (RTOS) permite a abstração do escalonamento, priorizando o atendimento a interrupções críticas de \textit{hardware} (como o término de uma transmissão de rádio) mediante o uso de primitivas de sincronização, tais como semáforos e filas de mensagens (\textit{queues}) \cite{barry_freertos}. Esta camada operacional assegura que o \textit{firmware} mantenha uma resposta previsível e estável frente à concorrência por recursos, minimizando o risco de \textit{jitters} no processamento de dados analíticos \cite{barry_freertos}.
+
+\section{Otimização de Transmissão de Dados}
+
+A quantização consiste na conversão de variáveis de ponto flutuante (\textit{float}) em tipos inteiros de tamanho fixo, técnica fundamental para reduzir a carga útil dos pacotes transmitidos em redes de banda estreita. Ao promover o escalonamento matemático das grandezas — multiplicando-as por potências de base 10 — é possível preservar a precisão física necessária, como a casa decimal centimétrica em coordenadas geodésicas, enquanto se reduz drasticamente o \textit{overhead} de memória e o tempo de serialização na transmissão \cite{oppenheim_signal_processing}. Esta abordagem mitiga os gargalos de largura de banda e reduz o custo computacional exigido para o empacotamento MAVLink, garantindo que o sistema atenda aos requisitos de \textit{throughput} sem comprometer a integridade dos dados de voo \cite{iot_data_compression_strategies}.
+
+A fundamentação apresentada neste capítulo delimita os parâmetros técnicos que orientam o projeto. A análise das restrições de hardware aeronáutico, aliada às escolhas de arquitetura de software modular e protocolos de comunicação otimizados, estabelece a base lógica necessária para a implementação do sistema proposto. 

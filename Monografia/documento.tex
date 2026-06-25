@@ -1,0 +1,139 @@
+% Modelo adaptado pelo prof. Dr. Alysson Filgueira Milanez
+% Campus Pau dos Ferros
+
+\documentclass[        
+    a4paper,          % Tamanho da folha A4
+    12pt,             % Tamanho da fonte 12pt
+    chapter=TITLE,    % Todos os capitulos devem ter caixa alta
+    section=Title,    % Todas as secoes devem ter caixa alta somente na primeira letra
+    subsection=Title, % Todas as subsecoes devem ter caixa alta somente na primeira letra
+    oneside,          % Usada para impressao em apenas uma face do papel
+    english,          % Hifenizacoes em ingles
+    brazilian,        % Ultimo idioma eh o idioma padrao do documento
+    fleqn,            % Comente esta linha se quiser centralizar as equacoes. Comente também a linha 65 abaixo
+    hyphens,
+    sumario=tradicional,
+]{abntex2}
+
+\input{lib/preambulo}
+
+\setlength{\mathindent}{0pt} %Complementa o alinhamento de equações para totalmente a esquerda.
+
+\trabalhoacademico{tccgraduacao}
+
+\removerbordasdohyperlink{sim} 
+
+\cordohyperlink{nao}
+
+\ies{Universidade Federal Rural do Semi-Árido}
+\iessigla{UFERSA}
+\centro{Pró-Reitoria de Graduação}
+\departamento{Departamento de Computação}
+
+\graduacaoem{Ciência da Computação}
+\habilitacao{bacharel} 
+
+\autor{Paulo Henrique Almeida de Andrade} 
+\titulo{IMPLEMENTAÇÃO DE UM SISTEMA DISTRIBUÍDO PARA INTEGRAÇÃO DE INSTRUMENTAÇÕES EMBARCADAS EM VOO DE VANTs}
+\subtitulo{}
+\data{2026}
+\local{Mossoró}
+
+% Exemplo: \dataaprovacao{08 / 10 / 2025}
+\dataaprovacao{\underline{  }}
+
+\orientador{Xxxxxxx Xxxxxx Xxxxxxx}
+\titulacaoOrientador{Prof. xx.}
+\orientadories{UFERSA}
+\orientadorcentro{)} % opcional
+\orientadorfeminino{nao} % Coloque 'sim' se for do sexo feminino
+
+%\coorientador{}
+%\titulacaoCoOrientador{Prof. xx.}
+%\coorientadories{SIGLA}
+%\coorientadorcentro{Centro do Coorientador (SIGLA)} % opcional
+%\coorientadorfeminino{nao} % Coloque 'sim' se for do sexo feminino
+
+
+% Exemplo de uso:
+% \membrodabancadois{Fulano de Tal}
+% \titulacaoBancaDois{Prof. xx.}
+% \membrodabancadoiscentro{CMPF}
+% \membrodabancadoisies{Universidade Federal Rural do Semi-Árido - UFERSA}
+
+\membrodabancadois{Xxxxxxx Xxxxxx Xxxxxxx}
+\titulacaoBancaDois{Prof. xx.}
+\membrodabancadoiscentro{}
+\membrodabancadoisies{SIGLA}
+\membrodabancatres{Xxxxxxx Xxxxxx Xxxxxxx}
+\titulacaoBancaTres{Prof. xx.}
+\membrodabancatrescentro{}
+\membrodabancatresies{SIGLA}
+\membrodabancaquatro{}
+\membrodabancaquatrocentro{}
+\membrodabancaquatroies{SIGLA}
+\membrodabancacinco{Prof. Dr. Xxxxxxx Xxxxxx Xxxxxxx}
+\membrodabancacincocentro{Teste}
+\membrodabancacincoies{Universidade do Membro da Banca Cinco (SIGLA)}
+\membrodabancaseis{Prof. Dr. Xxxxxxx Xxxxxx Xxxxxxx}
+\membrodabancaseiscentro{}
+\membrodabancaseisies{Universidade do Membro da Banca Seis (SIGLA)}
+
+% Para espacaomento duplo nas referencias
+% \let\OLDthebibliography\thebibliography
+% \renewcommand\thebibliography[1]{
+% \OLDthebibliography{#1}
+% \setlength{\itemsep}{24pt} % Space between items
+% \setlength{\parskip}{0pt} % Space between paragraphs
+% }
+
+
+\begin{document}
+
+	% Elementos pré-textuais
+	\imprimircapa
+	\imprimirfolhaderosto{}
+	%\imprimirfichacatalografica{1-pre-textuais/ficha-catalografica} %  gerada pela biblioteca 
+	\imprimirfolhadeaprovacao 
+	\imprimirdedicatoria{1-pre-textuais/dedicatoria}
+	\imprimiragradecimentos{1-pre-textuais/agradecimentos}
+	\imprimirepigrafe{1-pre-textuais/epigrafe}
+	\imprimirresumo{1-pre-textuais/resumo}
+	\imprimirabstract{1-pre-textuais/abstract}
+	\renewcommand*\listfigurename{Lista de Figuras} %Se você comentar esta linha o título da lista fica: LISTA DE ILUSTRAÇÕES
+	\imprimirlistadeilustracoes
+	\imprimirlistadetabelas
+	\imprimirlistadequadros
+	%\imprimirlistadealgoritmos
+	%\imprimirlistadecodigosfonte
+	\imprimirlistadeabreviaturasesiglas
+	% \imprimirlistadesimbolos{1-pre-textuais/lista-de-simbolos}   
+	\imprimirsumario
+	
+	\setcounter{table}{0}% Deixe este comando antes da primeira tabela.
+	
+	%Elementos textuais
+	\textual
+	\input{textuais/introducao}
+	\input{textuais/embasamento-teorico}
+  	\input{textuais/trabalhos-relacionados}
+	\input{textuais/arquitetura-distribuida}
+	\input{textuais/sistema-embarcado}
+	\input{textuais/middleware}
+	\input{textuais/on-site-client}
+	\input{textuais/resultados}
+	\input{textuais/conclusao}
+	
+	%Elementos pós-textuais	
+ \bibliographystyle{abntex2-alf}
+	\bibliography{3-pos-textuais/referencias}
+%	\imprimirglossario	
+	 \imprimirapendices
+		% Adicione aqui os apendices do seu trabalho
+		\input{3-pos-textuais/apendices/apendice-a}
+	 \imprimiranexos
+		% Adicione aqui os anexos do seu trabalho
+		\input{3-pos-textuais/anexos/anexo-a}
+	\imprimirindice
+
+\end{document}
