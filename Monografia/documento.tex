@@ -10,14 +10,14 @@
     oneside,          % Usada para impressao em apenas uma face do papel
     english,          % Hifenizacoes em ingles
     brazilian,        % Ultimo idioma eh o idioma padrao do documento
-    fleqn,            % Comente esta linha se quiser centralizar as equacoes. Comente também a linha 65 abaixo
+    %fleqn,            % Comente esta linha se quiser centralizar as equacoes. Comente também a linha 65 abaixo
     hyphens,
     sumario=tradicional,
 ]{abntex2}
 
 \input{lib/preambulo}
 
-\setlength{\mathindent}{0pt} %Complementa o alinhamento de equações para totalmente a esquerda.
+%\setlength{\mathindent}{0pt} %Complementa o alinhamento de equações para totalmente a esquerda.
 
 \trabalhoacademico{tccgraduacao}
 
@@ -42,8 +42,8 @@
 % Exemplo: \dataaprovacao{08 / 10 / 2025}
 \dataaprovacao{\underline{  }}
 
-\orientador{Xxxxxxx Xxxxxx Xxxxxxx}
-\titulacaoOrientador{Prof. xx.}
+\orientador{Paulo Henrique Lopes Silva}
+\titulacaoOrientador{Prof. dr.}
 \orientadories{UFERSA}
 \orientadorcentro{)} % opcional
 \orientadorfeminino{nao} % Coloque 'sim' se for do sexo feminino
@@ -116,7 +116,7 @@
 	\textual
 	\input{textuais/introducao}
 	\input{textuais/embasamento-teorico}
-  	\input{textuais/trabalhos-relacionados}
+  \input{textuais/trabalhos-relacionados}
 	\input{textuais/arquitetura-distribuida}
 	\input{textuais/sistema-embarcado}
 	\input{textuais/middleware}

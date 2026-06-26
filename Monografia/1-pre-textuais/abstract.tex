@@ -1,6 +1,4 @@
-\lipsum[1]
+The development of unmanned aerial vehicles (UAVs), particularly in the context of aerodesign projects, requires strict real-time monitoring of kinematic and atmospheric variables for the empirical validation of aerodynamic and structural models. However, commercial flight instrumentation solutions feature high costs and proprietary architectures, limiting customization and student access. Addressing this issue, this work proposes the design and implementation of a low-cost, open-architecture distributed telemetry system. The solution consists of three integrated nodes: an embedded hardware based on the dual-core ESP32 microcontroller, responsible for acquiring inertial, barometric, and global positioning (GNSS) data, and transmitting it via the LoRa protocol (915 MHz); a terrestrial middleware component acting as a protocol router, converting radio frequency datagrams into UDP packets over a local Wi-Fi network; and a ground control station structured under the Model-View-Controller (MVC) pattern, developed for continuous graphical visualization and redundant flight log recording. The embedded firmware adopted the Hexagonal Architecture, enabling Hardware-in-the-Loop (HIL) validation tests. Experimental results attested to the electrical stability of the acquisition circuit under load and proved the resilience of the communication link, recording only a 1\% packet loss at a distance of 500 meters under non-ideal propagation conditions. Additionally, the ground station succeeded in rendering graphics at a 20 Hz update rate without processing bottlenecks. It is concluded that the developed architecture delivers a robust, modular, and low-latency telemetry platform, suitable for supporting flight tests with high reliability.
 
-% Separe as keywords por ponto e vírgula todas em caixa baixa
-% abstract de 150 a 200 palavras
-%  De três a cinco keywords.
-\keywords{.}
+
+\keywords{telemetry; uav; lora; esp32; embedded system}

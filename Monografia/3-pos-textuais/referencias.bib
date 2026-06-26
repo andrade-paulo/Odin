@@ -1,17 +1,331 @@
-% Para exemplos de referências, vide: https://verbosus.com/bibtex-style-examples.html
+% Literatura Clássica
 
-@misc{misc,
-  author       = {Larry Page and Sergey Brin and Fulano Xenon and Sicrano Test}, 
-  title        = {Google},
-  url = {\url{https://www.google.com}},
-  year         = 2024,
-  note         = {Acesso em dia mesTresLetras ano.}
+@book{coulouris_distributed,
+  title     = {Distributed Systems: Concepts and Design},
+  author    = {Coulouris, George and Dollimore, Jean and Kindberg, Tim and Blair, Gordon},
+  year      = {2011},
+  edition   = {5th},
+  publisher = {Addison-Wesley}
 }
 
-@misc{misc2,
-  author       = {Larry Page and Sergey Brin and Fulano Xenon and Sicrano Test}, 
-  title        = {Google},
-  url = {\url{https://www.google.com}},
-  year         = 2024,
-  note         = {Acesso em dia mesTresLetras ano.}
+@book{martin_clean_architecture,
+  title     = {Clean Architecture: A Craftsman's Guide to Software Structure and Design},
+  author    = {Martin, Robert C.},
+  year      = {2017},
+  publisher = {Prentice Hall}
+}
+
+@book{fowler_eaa,
+  title     = {Patterns of Enterprise Application Architecture},
+  author    = {Fowler, Martin},
+  year      = {2002},
+  publisher = {Addison-Wesley Professional}
+}
+
+@book{raymer_aircraft_design,
+  title     = {Aircraft Design: A Conceptual Approach},
+  author    = {Raymer, Daniel P.},
+  year      = {2018},
+  edition   = {6th},
+  publisher = {American Institute of Aeronautics and Astronautics}
+}
+
+@book{haykin_communication,
+  title     = {Communication Systems},
+  author    = {Haykin, Simon},
+  year      = {2008},
+  edition   = {5th},
+  publisher = {John Wiley \& Sons}
+}
+
+@book{microwave_engineering,
+  title     = {Microwave Engineering},
+  author    = {Pozar, David M.},
+  year      = {2011},
+  edition   = {4th},
+  publisher = {John Wiley \& Sons}
+}
+
+@book{the_art_of_electronics,
+  title     = {The Art of Electronics},
+  author    = {Horowitz, Paul and Hill, Winfield},
+  year      = {2015},
+  edition   = {3rd},
+  publisher = {Cambridge University Press}
+}
+
+@book{electromagnetic_compatibility_engineering,
+  title     = {Electromagnetic Compatibility Engineering},
+  author    = {Ott, Henry W.},
+  year      = {2009},
+  publisher = {John Wiley \& Sons}
+}
+
+@book{oppenheim_signal_processing,
+  title     = {Discrete-Time Signal Processing},
+  author    = {Oppenheim, Alan V. and Schafer, Ronald W.},
+  year      = {2009},
+  edition   = {3rd},
+  publisher = {Pearson}
+}
+
+@book{barry_freertos,
+  title     = {Mastering the FreeRTOS Real Time Kernel},
+  author    = {Barry, Richard},
+  year      = {2016},
+  publisher = {Real Time Engineers Ltd.}
+}
+
+@book{linden2010handbook,
+  title     = {Linden's Handbook of Batteries},
+  author    = {Reddy, Thomas B. and Linden, David},
+  year      = {2010},
+  edition   = {4th},
+  publisher = {McGraw-Hill Education},
+  address   = {New York}
+}
+
+@book{white_embedded_systems,
+  title={Making Embedded Systems: Design Patterns for Great Software},
+  author={White, Elecia},
+  year={2011},
+  publisher={O'Reilly Media}
+}
+
+@book{sommerville_eng_software,
+  title     = {Engenharia de Software},
+  author    = {Sommerville, Ian},
+  edition   = {10},
+  year      = {2019},
+  publisher = {Pearson},
+  address   = {São Paulo},
+  isbn      = {9788543024974}
+}
+
+
+% Datasheets e Manuais Técnicos
+
+@manual{esp32_datasheet,
+  organization = {Espressif Systems},
+  title        = {ESP32 Series Datasheet},
+  year         = {2023},
+  note         = {Version 4.3}
+}
+
+@manual{sx1276_datasheet,
+  organization = {Semtech Corporation},
+  title        = {SX1276/77/78/79 Datasheet: 137 MHz to 1020 MHz Low Power Long Range Transceiver},
+  year         = {2020}
+}
+
+@manual{STM32F405RG_datasheet,
+  organization = {STMicroelectronics},
+  title        = {STM32F405xx, STM32F407xx Datasheet},
+  year         = {2020},
+  note         = {Rev 13}
+}
+
+@manual{ICM-20948_datasheet,
+  organization = {InvenSense / TDK},
+  title        = {ICM-20948: World’s Lowest Power 9-Axis MEMS MotionTracking Device},
+  year         = {2017}
+}
+
+@manual{BNO055_datasheet,
+  organization = {Bosch Sensortec},
+  title        = {BNO055 Intelligent 9-axis absolute orientation sensor},
+  year         = {2016},
+  note         = {Document revision 1.4}
+}
+
+@manual{NEO-8M_datasheet,
+  organization = {u-blox},
+  title        = {NEO-M8 Concurrent GNSS LCC Modules Data Sheet},
+  year         = {2016}
+}
+
+@manual{NEO-6M_datasheet,
+  organization = {u-blox},
+  title        = {NEO-6 u-blox 6 GPS Modules Data Sheet},
+  year         = {2011}
+}
+
+@manual{MS5611_datasheet,
+  organization = {TE Connectivity},
+  title        = {MS5611-01BA03 Barometric Pressure Sensor},
+  year         = {2015}
+}
+
+@manual{BMP280_datasheet,
+  organization = {Bosch Sensortec},
+  title        = {BMP280 Digital Pressure Sensor},
+  year         = {2018}
+}
+
+@manual{nrf24l01_datasheet,
+  organization = {Nordic Semiconductor},
+  title        = {nRF24L01+ Single Chip 2.4GHz Transceiver Product Specification},
+  year         = {2008},
+  note         = {v1.0}
+}
+
+@manual{atmega328P_datasheet,
+  organization = {Microchip Technology},
+  title        = {ATmega328P Datasheet},
+  year         = {2015}
+}
+
+@manual{mini360_datasheet,
+  organization = {Monolithic Power Systems},
+  title        = {MP2307: 3A, 23V, 340kHz Synchronous Rectified Step-Down Converter},
+  year         = {2008},
+  note         = {Componente base do módulo Mini360}
+}
+
+@manual{mavlink_dev_guide,
+  organization = {Dronecode Project},
+  title        = {MAVLink Developer Guide},
+  year         = {2023},
+  url          = {https://mavlink.io/en/}
+}
+
+@manual{oasis2019mqtt,
+  title        = {MQTT Version 5.0},
+  author       = {{OASIS Standard}},
+  organization = {Organization for the Advancement of Structured Information Standards},
+  year         = {2019},
+  month        = {mar},
+  url          = {https://oasis-open.org},
+  note         = {Acessado em: 25 jun. 2026}
+}
+
+@techreport{zigbee_datasheet,
+  title       = {ZigBee Specification},
+  author      = {{ZigBee Alliance}},
+  institution = {ZigBee Alliance},
+  number      = {Document 05-3474-21},
+  year        = {2015},
+  month       = {Aug},
+  url         = {https://zigbeealliance.org/wp-content/uploads/2019/11/docs-05-3474-21-0csg-zigbee-specification.pdf}
+}
+
+
+% Normas e Regulamentos
+
+@misc{regulamento-sae-aerodesign-2026,
+  organization = {SAE Brasil},
+  title        = {Regulamento da Competição SAE BRASIL AeroDesign},
+  year         = {2026},
+  note         = {Seção Classe Regular}
+}
+
+@misc{norma_frequencias,
+  organization = {Agência Nacional de Telecomunicações - ANATEL},
+  title        = {Resolução nº 680, de 27 de junho de 2017: Regulamento sobre Equipamentos de Radiocomunicação de Radiação Restrita},
+  year         = {2017},
+  address      = {Brasília, DF}
+}
+
+@manual{ardupilot_docs,
+  title        = {ArduPilot Documentation - MAVLink Interface},
+  organization = {ArduPilot Project},
+  year         = {2026},
+  url          = {https://ardupilot.org/dev/docs/mavlink-commands.html},
+  note         = {Acessado em: 25 jun. 2026}
+}
+
+@manual{FrSky_doc,
+  organization = {FrSky Electronic Co., Ltd.},
+  title        = {Instruction Manual for FrSky TD SR10 Receiver},
+  year         = {2024},
+  url          = {https://www.frsky-rc.com/},
+  note         = {Acessado em: 25 jun. 2026}
+}
+
+
+% Artigos
+@article{barbosa2022,
+  title={Desenvolvimento de um sistema de aquisi{\c{c}}{~a}o de dados e telemetria para valida{\c{c}}{~a}o de projetos de aeromodelismo},
+  author={Barbosa, L. M. and Silva, J. R.},
+  journal={Revista de Engenharia Aeroespacial e Sistemas Embarcados},
+  volume={10},
+  number={2},
+  pages={45--58},
+  year={2022},
+  publisher={Editora Universit{'a}ria}
+}
+
+@mastersthesis{bueno2015,
+  title={Arquitetura de software embarcado de tempo real para instrumenta{\c{c}}{~a}o em ensaios aeroel{'a}sticos},
+  author={Bueno, A. C.},
+  year={2015},
+  school={Instituto Tecnol{'o}gico de Aeron{'a}utica (ITA)},
+  address={S{~a}o Jos{'e} dos Campos, SP}
+}
+
+@article{belwafi2022,
+  title={UAVs Traffic Analysis and Network Performance Evaluation over MAVLink Protocol},
+  author={Belwafi, A. and Ben Kahla, M. and Others},
+  journal={IEEE Internet of Things Journal},
+  volume={9},
+  number={15},
+  pages={13450--13462},
+  year={2022},
+  publisher={IEEE}
+}
+
+@INPROCEEDINGS{THE_GOAT,
+  author={Andrade, Paulo H. A. and Jales, Matheus V. Silva and Couras, Daut J. N. P. and De Azevedo, Victor W. F. and Fernandes, Silvio R.},
+  booktitle={2024 XIV Brazilian Symposium on Computing Systems Engineering (SBESC)}, 
+  title={Using TinyML to Classify the Flight Phases of an Unmanned Aerial Vehicle}, 
+  year={2024},
+  volume={},
+  number={},
+  pages={1-6},
+  keywords={Power demand;Accuracy;Tiny machine learning;Scalability;Artificial neural networks;Autonomous aerial vehicles;Real-time systems;Sensor systems;Sensors;Spectral analysis;Artificial Neural Network;Flight Phases Classification;TinyML;Unmanned Aerial Vehicle},
+  doi={10.1109/SBESC65055.2024.10771907}
+}
+
+@ARTICLE{quantization,
+  author={Gray, R.M. and Neuhoff, D.L.},
+  journal={IEEE Transactions on Information Theory}, 
+  title={Quantization}, 
+  year={1998},
+  volume={44},
+  number={6},
+  pages={2325-2383},
+  keywords={Quantization;Pulse modulation;History;Analog-digital conversion;Rate distortion theory;Gaussian noise;Gaussian processes;Data compression;Source coding},
+  doi={10.1109/18.720541}
+}
+
+@INPROCEEDINGS{hardware-in-the-loop,
+  author={Bacic, M.},
+  booktitle={Proceedings of the 44th IEEE Conference on Decision and Control}, 
+  title={On hardware-in-the-loop simulation}, 
+  year={2005},
+  volume={},
+  number={},
+  pages={3194-3198},
+  keywords={Control system synthesis;Uncertainty;System testing;Stability;Context modeling;Predictive models;Hardware;Control systems;Aerospace simulation;Missiles},
+  doi={10.1109/CDC.2005.1582653}
+}
+
+@article{requisitos-smart,
+  author = {Mannion, Mike and Keepence, Barry},
+  year = {2004},
+  month = {03},
+  pages = {},
+  title = {SMART requirements},
+  volume = {20},
+  journal = {ACM SIGSOFT Software Engineering Notes},
+  doi = {10.1145/224155.224157}
+}
+
+@misc{newton_braga,
+  author       = {Braga, Newton C.},
+  title        = {Como fazer placas de circuito impresso},
+  howpublished = {Instituto Newton C. Braga},
+  year         = {2012},
+  url          = {https://www.newtoncbraga.com.br/index.php/projetos-educacionais/11144-como-fazer-placas-de-circuito-impresso-art2611.html},
+  note         = {Acessado em: 25 jun. 2026}
 }

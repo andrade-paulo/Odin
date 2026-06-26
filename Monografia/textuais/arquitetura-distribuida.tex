@@ -2,38 +2,41 @@
 \label{chap:arquitetura-distribuida}
 
 \section{Projeto conceitual}
-O cenário conceitual do sistema é composto por um piloto, um operador e um conjunto de sistemas de aquisições de dados que podem estar embarcados na aeronave ou em solo. Enquanto o piloto comanda a aeronave, o operador se encarrega de fiscalizar e operar os sistemas. Neste processo, o operador deve ser capaz de acompanhar a saúde dos componenetes e suas conexões, além dos próprios dados gerados. A Imagem \ref{fig:design-conceitual} representa os componentes e comunicações do cenário conceitual.
+O cenário conceitual do sistema é composto por um piloto, um operador e um conjunto de sistemas de aquisições de dados que podem estar embarcados na aeronave ou em solo. Enquanto o piloto comanda a aeronave, o operador se encarrega de fiscalizar e operar os sistemas. Neste processo, o operador deve ser capaz de acompanhar a saúde dos componentes e suas conexões, além dos próprios dados gerados. A Figura \ref{fig:design-conceitual} representa os componentes e comunicações do cenário conceitual.
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=1\textwidth]{images/design_conceitual.png}
     \caption{\textit{Design} conceitual da solução}
+    \includegraphics[width=1.1\textwidth]{images/design_conceitual.png}
+    \footnotesize Fonte: Autoria própria, 2026.
     \label{fig:design-conceitual}
 \end{figure}
 
 \section{Arquitetura de comunicação}
 Devido à natureza distribuída do projeto, a arquitetura de comunicação entre componentes foi a primeira parte a ser desenvolvida, servindo de guia para todo o processo de implementação.
 
-Para começar a construção da arquitetura foi necessário listar os componentes e suas funções, conforme a Imagem \ref{fig:componentes-distribuidos}. A determinação de onde começa e termina cad componente deve considerar as diferentes responsabilidades e escopos, de forma que todos os componentes tenham tarefas exclusivas e bem definidas \cite{sistemas-distribuidos}. Para este diagrama considerou-se uma extrapolação do escopo de implementação do presente trabalho para que as futuras implementações já estejam contidas no planejamento inicial.
+Para começar a construção da arquitetura foi necessário listar os componentes e suas funções, conforme a Figura \ref{fig:componentes-distribuidos}. A determinação de onde começa e termina cada componente deve considerar as diferentes responsabilidades e escopos, de forma que todos os componentes tenham tarefas exclusivas e bem definidas \cite{coulouris_distributed}. Para este diagrama considerou-se uma extrapolação do escopo de implementação do presente trabalho para que as futuras implementações já estejam contidas no planejamento inicial.
 
 \begin{figure}[ht]
     \centering
+    \caption{Componentes distribuídos}
     \includegraphics[width=1\textwidth]{images/componentes_design_comunicacao.png}
-    \caption{Componentes distribuidos}
+    \footnotesize Fonte: Autoria própria, 2026.
     \label{fig:componentes-distribuidos}
 \end{figure}
 
 Para suprir o requisito RF.09 o sistema implementará o componente Odin. Este, será uma plataforma para centralização das informações produzidas pelos sensores e da saúde do sistema. Inferências e algoritmos complexos serão aplicados neste componente, visto que será instanciado por uma máquina host com maior poder de processamento em relação aos sistemas embarcados.
 
-Devido à natureza plural da camada física e dos protocolos, há a necessidade da criação de um \textit{middleware}, componente especializado em interpretar e integrar cada elemento distribuído \cite{distribuidos}. Desta forma, criou-se o Shoulder, que centraliza e padroniza cada mensagem enviada pelos diferentes sistemas produtores, viabilizando o requisito RF.08. Com isso, o Odin assume isoladamente a tarefa de visualização e o middleware, de integração.
+Devido à natureza plural da camada física e dos protocolos, há a necessidade da criação de um \textit{middleware}, componente especializado em interpretar e integrar cada elemento distribuído \cite{coulouris_distributed}. Desta forma, criou-se o Shoulder, que centraliza e padroniza cada mensagem enviada pelos diferentes sistemas produtores, viabilizando o requisito RF.08. Com isso, o Odin assume isoladamente a tarefa de visualização e o middleware, de integração.
 
-Os componentes Aicraft Crow, Weather Crow, Obstacle Crow e FPV Crow representam os produtores de dados. Cada um destes se responsabiliza por um conjunto de informações diferente. Para este trabalho, a implementação será restringida ao Aircraft Crow, sistema instalado na aeronave para monitoramento das principais informações, conforme exigido pelo requisito RF.01.
+Os componentes Aircraft Crow, Weather Crow, Obstacle Crow e FPV Crow representam os produtores de dados. Cada um destes se responsabiliza por um conjunto de informações diferente. Para este trabalho, a implementação será restringida ao Aircraft Crow, sistema instalado na aeronave para monitoramento das principais informações, conforme exigido pelo requisito RF.01.
 
-A Imagem \ref{fig:diagrama-comunicacao} representa quais os componentes que se comunicam.
+A Figura \ref{fig:diagrama-comunicacao} representa quais os componentes que se comunicam.
 
 \begin{figure}[ht]
     \centering
+    \caption{Componentes distribuídos}
     \includegraphics[width=1\textwidth]{images/design_comunicacao.png}
-    \caption{Componentes distribuidos}
+    \footnotesize Fonte: Autoria própria, 2026.
     \label{fig:diagrama-comunicacao}
 \end{figure}
 
@@ -41,52 +44,55 @@ A Imagem \ref{fig:diagrama-comunicacao} representa quais os componentes que se c
 
 \section{Camada física}
 \subsection{Comunicação Embarcado-Middleware}
-No processo de desenvolvimento do sistema de telemetria, a definição da camada física desempenha um papel crítico para garantir a integridade dos dados. A restrição de tamanho, peso e potência, comumente referenciada na literatura aeroespacial pela sigla SWaP (Size, Weight, and Power), atua juntamente com o alcance e velocidade da transmisão como o principal fator para a seleção de componentes de radiofrequência (RF) e a respectiva modelagem da arquitetura elétrica \cite{SWaP}.
+No processo de desenvolvimento do sistema de telemetria, a definição da camada física desempenha um papel crítico para garantir a integridade dos dados. A restrição de tamanho, peso e potência, comumente referenciada na literatura aeroespacial pela sigla SWaP (Size, Weight, and Power), atua juntamente com o alcance e velocidade da transmisão como o principal fator para a seleção de componentes de radiofrequência (RF) e a respectiva modelagem da arquitetura elétrica \cite{raymer_aircraft_design}.
 
-Inicialmente, para a estimativa do requisito de bit rate, deve-se considerar a natureza estritamente analítica das informações processadas. O sistema proposto baseia-se no empacotamento de dados estruturados tipicamente regidos por protocolos orientados a mensagens \cite{procurar_citacao}. Como não há exigência de transmissão de vídeo em tempo real ou dados de grande largura de banda, um bit rate na ordem de dezenas de kbps demonstra-se suficiente para manter uma taxa de atualização segura para a estação de solo. 
+Inicialmente, para a estimativa do requisito de bit rate, deve-se considerar a natureza estritamente analítica das informações processadas. O sistema proposto baseia-se no empacotamento de dados estruturados tipicamente regidos por protocolos orientados a mensagens. Como não há exigência de transmissão de vídeo em tempo real ou dados de grande largura de banda, um bit rate na ordem de dezenas de kbps demonstra-se suficiente para manter uma taxa de atualização segura para a estação de solo. 
 
-A viabilidade e os limites desta capacidade de canal podem ser validados a partir do Teorema de Shannon-Hartley, correlacionando a largura de banda à relação sinal-ruído (SNR) disponível no ambiente de operação, conforme a equação: $C = B \log_2(1 + S/N)$ \cite{teoria_da_comunicacao}. Em cenários práticos de ensaios em voo, o afastamento radial da aeronave em relação à estação de solo atenua drasticamente a potência do sinal recebido, resultando em uma relação sinal-ruído ($S/N$) criticamente baixa. Entretanto, como a capacidade do canal demandada ($C$) para o tráfego dos pacotes de dados estruturados restringe-se a taxas diminutas, a tecnologia de espalhamento espectral (Spread Spectrum) compensa essa deficiência de potência ampliando significativamente a largura de banda ocupada ($B$).
+A viabilidade e os limites desta capacidade de canal podem ser validados a partir do Teorema de Shannon-Hartley, correlacionando a largura de banda à relação sinal-ruído (SNR) disponível no ambiente de operação, conforme a equação: $C = B \log_2(1 + S/N)$ \cite{haykin_communication}. Em cenários práticos de ensaios em voo, o afastamento radial da aeronave em relação à estação de solo atenua drasticamente a potência do sinal recebido, resultando em uma relação sinal-ruído ($S/N$) criticamente baixa. Entretanto, como a capacidade do canal demandada ($C$) para o tráfego dos pacotes de dados estruturados restringe-se a taxas diminutas, a tecnologia de espalhamento espectral (Spread Spectrum) compensa essa deficiência de potência ampliando significativamente a largura de banda ocupada ($B$).
 
-A arquitetura de comunicação evidencia um claro \textit{trade-off} fundamentado na física de propagação de ondas eletromagnéticas. Frequências mais baixas oferecem maior capacidade de penetração e alcance, possuindo menor suscetibilidade a perdas por obstáculos, o que ocorre em detrimento da velocidade de transmissão de dados. Em contrapartida, frequências mais altas sofrem maior atenuação atmosférica , limitando consideravelmente o alcance seguro \cite{wireless_communication}. 
+A arquitetura de comunicação evidencia um claro \textit{trade-off} fundamentado na física de propagação de ondas eletromagnéticas. Frequências mais baixas oferecem maior capacidade de penetração e alcance, possuindo menor suscetibilidade a perdas por obstáculos, o que ocorre em detrimento da velocidade de transmissão de dados. Em contrapartida, frequências mais altas sofrem maior atenuação atmosférica , limitando consideravelmente o alcance seguro \cite{haykin_communication}. 
 
 Para cenários de ensaios em voo operando além da linha de visada visual (BVLOS), a orientação e o padrão de radiação das antenas sofrem alterações abruptas durante manobras dinâmicas, tornando imperativo priorizar a resiliência do alcance sobre a largura de banda \cite{microwave_engineering}.
 
 Para suprir os requisitos de alcance estabelecidos, realizou-se um comparativo técnico entre as principais opções de módulos comerciais disponíveis. Dispositivos operantes na faixa de 2,4 GHz, como o nRF24L01 e o ZigBee, oferecem taxas de transferência elevadas (2 Mbps e 250 kbps, respectivamente). Contudo, apresentam alcances nominais restritos a 0,8 km e 0,1 km respectivamente em linha de visada, inviabilizando sua aplicação \cite{nrf24l01_datasheet} \cite{zigbee_datasheet}. 
 
-Desta forma, a seleção recaiu sobre os módulos baseados no protocolo LoRa, operantes nas bandas Sub-GHz de 915 MHz \cite{regulamento_lora}. Embora a modulação de espalhamento espectral imponha uma redução drástica no bit rate máximo (limitado a 37,5 kbps), ela proporciona um alcance de até 10,0 km em área aberta, configurando-se como a escolha técnica mais segura e justificada para evitar perdas de pacotes \cite{SX1276_datasheet}.
+Desta forma, a seleção recaiu sobre os módulos baseados no protocolo LoRa, operantes nas bandas Sub-GHz de 915 MHz \cite{sx1276_datasheet}. Embora a modulação de espalhamento espectral imponha uma redução drástica no bit rate máximo (limitado a 37,5 kbps), ela proporciona um alcance de até 10,0 km em área aberta, configurando-se como a escolha técnica mais segura e justificada para evitar perdas de pacotes \cite{sx1276_datasheet}.
 
 \subsection{Comunicação Middleware-Cliente}
 Para a comunicação middleware-cliente os requisitos de alcance e consumo energético são menos exigentes, visto que ambos estarão estacionários em solo. Assumindo que o componente Odin será acessado através de dispositivos e sistemas operacionais de uso geral, considerou-se duas alternativas: comunicação UART via portas USB, e rede Wi-Fi gerada no microcontrolador do middleware.
 
-Para conexões UART, o \textit{baud rate} é a métrica que define a velocidade da transmissão serial \cite{esp32_datasheet}. Normalmente, microcontroladores costumam ter um limite de \textit{baud rate} até 10 Mbps \cite{stm32_datasheet} \cite{esp32_datasheet} \cite{atmega328P_datasheet} o que é uma taxa razoável, mas exige microcontroladores específicos e deixa uma margem apertada para transmissão dos dados provenientes dos sistemas de aquisição.
+Para conexões UART, o \textit{baud rate} é a métrica que define a velocidade da transmissão serial \cite{esp32_datasheet}. Normalmente, microcontroladores costumam ter um limite de \textit{baud rate} até 10 Mbps \cite{STM32F405RG_datasheet} \cite{esp32_datasheet} \cite{atmega328P_datasheet} o que é uma taxa razoável, mas exige microcontroladores específicos e deixa uma margem apertada para transmissão dos dados provenientes dos sistemas de aquisição.
 
 A conexão UART se destaque na simplicidade de implementação, visto que já é o protocolo padrão para comunicação serial entre computadores e microcontroladores. Porém, por ser um protocolo serial, exige que os dispositivos estejam fisicamente conectados, restringindo a mobilidade destes componentes no cenário físico real.
-
-TODO: tabela com os baud rates padrões de cada microcontrolador citado.
 
 Na conexão Wi-Fi há uma maior margem de transmissão. Em microcontroladores da família ESP32, o máximo teórico chega a 150 Mbps \cite{esp32_datasheet}. O \textit{trade-off} desta conexão de alta velocidade vem principalmente em forma de consumo energético, que para este componente, não é uma preocupação crítica. Além disso, a conexão Wi-Fi dá maior liberdade de mobilidade, com as restrições de distância a partir de 20 metros.
 
 Portanto, por mais que o Wi-Fi adicione complexidade ao sistema e traga uma série de considerações para as decisões da camada de transmissão, as vantagens de velocidade e mobilidade valorizam a abordagem de internet das coisas (IoT) em relação à conexão UART via USB.
 
 \subsection{Comunicação Piloto-Embarcado}
-Para operar o sistema há a necessidade de uma via de comunicação fácil entre o piloto e o dispositivo embarcado. Com essa motivação, surgiu a ideia de conectar o sistema embarcado ao receptor FrSky TD SR10 -- presente na Imagem \ref{fig:FrSky} --, utilizado para operar a aeronave. Dessa forma, o piloto pode controlar os estados do sistema embarcado com a mesma interface de comandos que opera o controle da aeronave.
+Para operar o sistema há a necessidade de uma via de comunicação fácil entre o piloto e o dispositivo embarcado. Com essa motivação, surgiu a ideia de conectar o sistema embarcado ao receptor FrSky TD SR10 -- presente na Figura \ref{fig:FrSky} --, utilizado para operar a aeronave. Dessa forma, o piloto pode controlar os estados do sistema embarcado com a mesma interface de comandos que opera o controle da aeronave.
 
-TODO: Figura do FrSky
+\begin{figure}[ht]
+    \centering
+    \caption{Rádio Controle e Receptor FrSky}
+    \label{fig:FrSky}
+    \includegraphics[width=1\textwidth]{images/frsky.png}\\
+    \footnotesize Fonte: Autoria própria, 2026.
+\end{figure}
 
-Para garantir compatibilidade com as ferramentas da equipe PegAzuls, a comunicação com o receptor será feita por sinal \textit{Pulse Width Module} (PWM) transmitido em um fio AWG 22 \cite{FrSky_doc}. Como apresentado na Imagem \ref{fig:pwm}, esta técnica de comunicação permite o controle de variáveis analógicas usando output digital que varia a largura dos pulsos em um período fixo \cite{pwm}. Os poucos comandos enviados ao sistema embarcado serão simples, servindo exclusivamente para o controle da máquina de estado do sistema, ou seja, para determinar se o sistema está no estado de \textit{idle}, calibração ou leitura. Portanto, não há necessidade de parâmetros complexos por parte do piloto, apenas a leitura do pulse já será o suficiente para decifrar o comando enviado.
-
-TODO: Figura do PWM
+Para garantir compatibilidade com as ferramentas da equipe PegAzuls, a comunicação com o receptor será feita por sinal \textit{Pulse Width Module} (PWM) transmitido em um fio AWG 22 \cite{FrSky_doc}. Esta técnica de comunicação permite o controle de variáveis analógicas usando output digital que varia a largura dos pulsos em um período fixo \cite{the_art_of_electronics}. Os poucos comandos enviados ao sistema embarcado serão simples, servindo exclusivamente para o controle da máquina de estado do sistema, ou seja, para determinar se o sistema está no estado de \textit{idle}, calibração ou leitura. Portanto, não há necessidade de parâmetros complexos por parte do piloto, apenas a leitura do pulse já será o suficiente para decifrar o comando enviado.
 
 Com a definição das características da camada física, completou-se mais um nível da arquitetura de comunicação do sistema, representado no diagrama da Figura \ref{fig:camada-fisica}.
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=1\textwidth]{images/camada_fisica_design_comunicacao.png}
     \caption{Camada física do sistema}
+    \includegraphics[width=1\textwidth]{images/camada_fisica_design_comunicacao.png}
+    \footnotesize Fonte: Autoria própria, 2026.
     \label{fig:camada-fisica}
 \end{figure}
 
-Os futuros terão necessidades próprias que certamente trarão conclusões diferentes dos \cite{trade-offs} da camada física. Portanto, há a necessidade de prever a integração de diferentes vias na camada física. Neste caso, o middleware seguirá responsável por implementar os hardwares necessários para a captura dos pacotes. Para este trabalho, este cenário está fora do escopo, porém está mapeado na arquitetura com o intuito de abrir caminho a implementações futuras.
+Os futuros componentes terão necessidades próprias que certamente trarão conclusões diferentes dos \textit{trade-offs} da camada física. Portanto, há a necessidade de prever a integração de diferentes vias na camada física. Neste caso, o middleware seguirá responsável por implementar os hardwares necessários para a captura dos pacotes. Para este trabalho, este cenário está fora do escopo, porém está mapeado na arquitetura com o intuito de abrir caminho a implementações futuras.
 
 \section{Camada de transporte}
 \subsection{Comunicação Embarcado-Middleware}
@@ -94,22 +100,23 @@ A transição dos dados brutos obtidos pelos sensores para um formato estruturad
 
 O protocolo LoRaWAN, embora otimizado para o espectro Sub-GHz, foi descartado devido à sua topologia complexa e exigência de baixo duty cycle, o que introduz alta latência e overhead incompatíveis com as taxas de atualização contínuas exigidas na telemetria de voo. 
 
-De maneira análoga, o protocolo MQTT, operante sobre a camada TCP, exige a manutenção de uma conexão estável e frequentemente utiliza notações pesadas como JSON, gerando um tráfego de dados insustentável para o canal de rádio escolhido \cite{internet_of_things}.
+De maneira análoga, o protocolo MQTT, operante sobre a camada TCP, exige a manutenção de uma conexão estável e frequentemente utiliza notações pesadas como JSON, gerando um tráfego de dados insustentável para o canal de rádio escolhido \cite{oasis2019mqtt}.
 
-Desta forma, a arquitetura do sistema adotou o MAVLink como padrão primário de comunicação. O MAVLink atua como um protocolo de rede no modelo publish-subscribe altamente serializado e otimizado para aeronaves não tripuladas. Sua estrutura leve e comportamento análogo ao User Datagram Protocol (UDP) garantem o envio rápido e sem conexão prévia dos pacotes. Uma vantagem fundamental deste protocolo é sua total independência topológica; o mecanismo define apenas a estrutura da mensagem na camada de aplicação e a sua serialização, permitindo que os dados sejam escoados livremente sobre canais de telemetria de baixa largura de banda operando em frequências de 915 MHz, como o módulo LoRa definido na camada física \cite{MAVLink}.
+Desta forma, a arquitetura do sistema adotou o MAVLink como padrão primário de comunicação. O MAVLink atua como um protocolo de rede no modelo publish-subscribe altamente serializado e otimizado para aeronaves não tripuladas. Sua estrutura leve e comportamento análogo ao User Datagram Protocol (UDP) garantem o envio rápido e sem conexão prévia dos pacotes. Uma vantagem fundamental deste protocolo é sua total independência topológica; o mecanismo define apenas a estrutura da mensagem na camada de aplicação e a sua serialização, permitindo que os dados sejam escoados livremente sobre canais de telemetria de baixa largura de banda operando em frequências de 915 MHz, como o módulo LoRa definido na camada física \cite{mavlink_dev_guide}.
 
-Do ponto de vista da estruturação do frame, o protocolo apresenta duas versões operacionais, conforme a Imagem \ref{fig:mavlink_versions}. A versão original (MAVLink v1) encapsula dados em pacotes leves, variando de 8 a 263 bytes, apresentando cabeçalhos mínimos compostos por indicadores de início (STX), tamanho (LEN) e sequência (SEQ). Contudo, carece de soluções nativas contra interceptação e adulteração. Em contrapartida, a implementação da versão v2 amplia o espaço do identificador de mensagens (MSG ID) de 1 para 3 bytes e introduz flags de compatibilidade, além de suportar a adição de uma assinatura criptográfica de 13 bytes no fim do pacote. Apesar do aumento na complexidade do frame (11 a 279 bytes), a versão v2 garante retrocompatibilidade estrita, conferindo segurança condicional ao tráfego de ensaios sensíveis \cite{mavlink_doc}.
+Do ponto de vista da estruturação do frame, o protocolo apresenta duas versões operacionais, conforme a Figura \ref{fig:mavlink_versions}. A versão original (MAVLink v1) encapsula dados em pacotes leves, variando de 8 a 263 bytes, apresentando cabeçalhos mínimos compostos por indicadores de início (STX), tamanho (LEN) e sequência (SEQ). Contudo, carece de soluções nativas contra interceptação e adulteração. Em contrapartida, a implementação da versão v2 amplia o espaço do identificador de mensagens (MSG ID) de 1 para 3 bytes e introduz flags de compatibilidade, além de suportar a adição de uma assinatura criptográfica de 13 bytes no fim do pacote. Apesar do aumento na complexidade do frame (11 a 279 bytes), a versão v2 garante retrocompatibilidade estrita, conferindo segurança condicional ao tráfego de ensaios sensíveis \cite{mavlink_dev_guide}.
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=1\textwidth]{images/mavlink_versions.png}
     \caption{Header das versões v1 e v2 do MAVLink}
+    \includegraphics[width=1\textwidth]{images/mavlink_versions.png}
+    \footnotesize Fonte: Autoria própria, 2026.
     \label{fig:mavlink_versions}
 \end{figure}
 
 Para conciliar o MAVLink com a natureza distribuída da arquitetura proposta, tira-se proveito dos campos identificadores embutidos nativamente no cabeçalho: o System ID (SYS) e o Component ID (COMP). Essa matriz de identificação permite a distinção padronizada da fonte emissora dos dados. O middleware, atuando como integrador, utiliza esses identificadores para rotear pacotes provenientes de sistemas no solo e na aeronave.
 
-Por fim, o dicionário de mensagens do sistema não será restrito às definições genéricas presentes no arquivo common.xml oficial. A fim de mitigar o processamento computacional nas pontas e adaptar o empacotamento aos sensores específicos deste trabalho, um dialeto MAVLink definido em um arquivo XML personalizado será empregado. Esta abordagem possibilita a geração de headers na linguagem C otimizados para os microcontroladores ESP32, mantendo, simultaneamente, a interoperabilidade estrutural com ferramentas open-source consolidadas no setor aeroespacial, tais como ArduPilot e Mission Planner \cite{software_engineering_UAV}.
+Por fim, o dicionário de mensagens do sistema não será restrito às definições genéricas presentes no arquivo common.xml oficial. A fim de mitigar o processamento computacional nas pontas e adaptar o empacotamento aos sensores específicos deste trabalho, um dialeto MAVLink definido em um arquivo XML personalizado será empregado. Esta abordagem possibilita a geração de headers na linguagem C otimizados para os microcontroladores ESP32, mantendo, simultaneamente, a interoperabilidade estrutural com ferramentas open-source consolidadas no setor aeroespacial, tais como ArduPilot \cite{ardupilot_docs}.
 
 \subsection{Comunicação middleware-cliente}
 
@@ -117,12 +124,13 @@ Dado que a conexão entre o middleware e o cliente será através de uma conexã
 
 Uma popular solução seria trazer tecnologias de \textit{publish-subscribe}. Estas se destacam em cenários onde vários clientes consomem as informações e em cenários onde cada pacote precisa ter sua entrega garantida, com pouca tolerância para perdas. Por mais que esta estratégia seja popular e altamente adotada em cenários distribuídos, não são estas as necessidades e prioridades desta comunicação. Devido à natureza do projeto, deicidiu-se que a comunicação será direcionada a apenas um cliente, valorizando a escolha de uma conexão \textit{unicast}.
 
-Com os protocolos definidos, finalizou-se o diagrama de comunicação com detalhes da camada de transporte, conforme Imagem \ref{fig:design-de-comunicacao}.
+Com os protocolos definidos, finalizou-se o diagrama de comunicação com detalhes da camada de transporte, conforme Figura \ref{fig:design-de-comunicacao}.
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=1\textwidth]{images/design_de_comunicacao.png}
     \caption{\textit{Design} de comunicação}
+    \includegraphics[width=1\textwidth]{images/design_de_comunicacao.png}
+    \footnotesize Fonte: Autoria própria, 2026.
     \label{fig:design-de-comunicacao}
 \end{figure}
 
